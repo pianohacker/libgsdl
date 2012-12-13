@@ -1,0 +1,203 @@
+#include <glib.h>
+
+#include "tokenizer.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "tokenizer.h"
+
+struct _GSDLTokenizer {
+	GIOChannel *channel;
+	gunichar *stringbuf;
+	
+	int line;
+	int col;
+
+	bool peek_avail;
+	gunichar peeked;
+};
+
+GSDLTokenizer* gsdl_tokenizer_new(const char *filename, GError **err) {
+	GSDLTokenizer* self = g_new(GSDLTokenizer, 1);
+	self->channel = g_io_channel_new_file(filename, "r", err);
+
+	if (!self->channel) return NULL;
+
+	self->stringbuf = NULL;
+	self->line = 1;
+	self->col = 1;
+	self->peek_avail = false;
+
+	return self;
+}
+
+GSDLTokenizer* gsdl_tokenizer_new_from_string(const char *str, GError *err) {
+	GSDLTokenizer* self = g_new(GSDLTokenizer, 1);
+	self->stringbuf = g_utf8_to_ucs4(str, -1, NULL, NULL, err);
+
+	if (!self->stringbuf) return NULL;
+
+	self->channel = NULL;
+	self->line = 1;
+	self->col = 1;
+	self->peek_avail = false;
+
+	return self;
+}
+
+//> Utility Functions
+static bool _read(GSDLTokenizer *self, gunichar *result, GError **err) {
+	if (self->peek_avail) {
+		*result = self->peeked;
+		self->peek_avail = false;
+	} else if (self->stringbuf) {
+		if (!*self->stringbuf) {
+			self->stringbuf = NULL;
+			*result = EOF;
+		}
+
+		return *(self->stringbuf++);
+	} else {
+		if (G_UNLIKELY(!self->channel)) return false;
+
+		switch (g_io_channel_read_unichar(self->channel, result, err)) {
+			case G_IO_STATUS_ERROR:
+				self->channel = NULL;
+				self->peek_avail = false;
+				return false;
+			case G_IO_STATUS_EOF:
+				self->peek_avail = false;
+				*result = EOF;
+				g_io_channel_shutdown(self->channel, FALSE, NULL);
+				self->channel = NULL;
+
+				return true;
+		}
+	}
+
+	if (*result == '\n') {
+		self->line++;
+		self->col = 1;
+	} else {
+		self->col++;
+	}
+
+	return true;
+}
+
+static bool _peek(TokState *self, gunichar *result, GError **err) {
+	if (!self->peek_avail) {
+		if (self->stringbuf) {
+			if (*(self->stringbuf + 1)) {
+				self->peeked = *(self->stringbuf + 1);
+			} else {
+				*result = EOF;
+			}
+		} else {
+			if (!self->channel == NULL) return false;
+
+			switch (g_io_channel_read_unichar(self->channel, &(self->peeked), err)) {
+				case G_IO_STATUS_ERROR:
+					self->channel = NULL;
+					self->peek_avail = false;
+					return false;
+				case G_IO_STATUS_EOF:
+					self->peeked = EOF;
+					g_io_channel_shutdown(self->channel, FALSE, NULL);
+					self->channel = NULL;
+				default:
+					self->peek_avail = true;
+			}
+		}
+	}
+
+	*result = self->peeked;
+	return true;
+}
+
+static GSDLToken* _maketoken(GSDLTokenType type, int line, int col) {
+	GSDLToken *result = g_slice_new(GSDLToken);
+
+	result->type = type;
+	result->line = line;
+	result->col = col;
+
+	return result;
+}
+
+bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **error) {
+	gunichar c, nc;
+	int line;
+	int col;
+
+	retry:
+	line = self->line;
+	col = self->col;
+	if (!_read(self, &c, error)) return false;
+
+	if (G_UNLIKELY(c == EOF)) {
+		*result = _maketoken(T_EOF, line, col);
+		return true;
+	} else if (c == '\r') {
+		if (_peek(self, &c) && c == '\n') _read(self, &c);
+
+		*result = _maketoken('\n', line, col);
+		return true;
+	} else if (c < 256 && strchr(":./{}=", (char) c)) {
+		*result = _maketoken(c, line, col);
+		return true;
+	} else if (c < 256 && isdigit((char) c)) {
+		*result = _maketoken(T_NUMBER, line, col);
+		int length = 7;
+		char *output = (*result)->contents = g_malloc(length);
+
+		output[0] = c;
+		int i = 1;
+
+		while (_peek(self, &c) && c < 256 && isdigit(c)) {
+			if (i == length - 1) {
+				length = length * 2 + 1;
+				output = (*result)->contents = g_realloc(output, length);
+			}
+
+			_read(self, output + i++);
+		}
+		output[i] = '\0';
+
+		return true;
+	} else if (g_unichar_is_letter(c) || g_unichar_type(c) == G_UNICODE_CONNECT_PUNCTUATION || g_unichar_type(c) == G_UNICODE_CURRENCY_SYMBOL) {
+		*result = _maketoken(T_IDENTIFIER, line, col);
+		int length = 7;
+		char *output = (*result)->contents = g_malloc(length);
+		GUnicodeType type;
+
+		int i = g_unichar_to_utf8(c, output);
+
+		while (_peek(self, &c, err) && (g_unichar_is_letter(c) || g_unichar_is_digit(c) || (type = g_unichar_type(c)) == G_UNICODE_CURRENCY_SYMBOL || type == G_UNICODE_CONNECT_PUNCTUATION || type == G_UNICODE_LETTER_NUMBER || type == G_UNICODE_SPACING_MARK || type = G_UNICODE_NON_SPACING_MARK)) {
+			if (i >= length - 5) {
+				length = length * 2 + 1;
+				output = (*result)->contents = g_realloc(output, length);
+			}
+
+			_read(self, &c, NULL);
+			i += g_unichar_to_utf8(c, output + i);
+		}
+		output[i] = '\0';
+
+		return true;
+	} else if ((c == '/' && _peek(self, &nc) && nc == '/') || (c == '-' && _peek(self, &nc) && nc == '-') || c == '#') {
+		if (c != '#') _read(self, &c);
+		while (_peek(self, &c) && !(c == '\n' || c == EOF)) _read(self, &c);
+
+		goto retry;
+	} else if (c == ' ' || c == '\t') {
+		// Do nothing
+		goto retry;
+	} else {
+		fprintf(stderr, "Invalid character '%c'(%d) at line %d, col %d", c, c, line, col);
+		return false;
+	}
+}
