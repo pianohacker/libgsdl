@@ -128,7 +128,7 @@ static GSDLToken* _maketoken(GSDLTokenType type, int line, int col) {
 	return result;
 }
 
-bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **error) {
+bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) {
 	gunichar c, nc;
 	int line;
 	int col;
@@ -136,13 +136,13 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **error
 	retry:
 	line = self->line;
 	col = self->col;
-	if (!_read(self, &c, error)) return false;
+	if (!_read(self, &c, err)) return false;
 
 	if (G_UNLIKELY(c == EOF)) {
 		*result = _maketoken(T_EOF, line, col);
 		return true;
 	} else if (c == '\r') {
-		if (_peek(self, &c) && c == '\n') _read(self, &c);
+		if (_peek(self, &c) && c == '\n') _read(self, &c, err);
 
 		*result = _maketoken('\n', line, col);
 		return true;
@@ -157,13 +157,13 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **error
 		output[0] = c;
 		int i = 1;
 
-		while (_peek(self, &c) && c < 256 && isdigit(c)) {
+		while (_peek(self, &c, err) && c < 256 && isdigit(c)) {
 			if (i == length - 1) {
 				length = length * 2 + 1;
 				output = (*result)->contents = g_realloc(output, length);
 			}
 
-			_read(self, output + i++);
+			_read(self, output + i++, NULL);
 		}
 		output[i] = '\0';
 
@@ -188,16 +188,16 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **error
 		output[i] = '\0';
 
 		return true;
-	} else if ((c == '/' && _peek(self, &nc) && nc == '/') || (c == '-' && _peek(self, &nc) && nc == '-') || c == '#') {
-		if (c != '#') _read(self, &c);
-		while (_peek(self, &c) && !(c == '\n' || c == EOF)) _read(self, &c);
+	} else if ((c == '/' && _peek(self, &nc, err) && nc == '/') || (c == '-' && _peek(self, &nc, err) && nc == '-') || c == '#') {
+		if (c != '#') _read(self, &c, NULL);
+		while (_peek(self, &c, err) && !(c == '\n' || c == EOF)) _read(self, &c, NULL);
 
 		goto retry;
 	} else if (c == ' ' || c == '\t') {
 		// Do nothing
 		goto retry;
 	} else {
-		fprintf(stderr, "Invalid character '%c'(%d) at line %d, col %d", c, c, line, col);
+		fprintf(stderr, "Invalid character '%s'(%d) at line %d, col %d", g_ucs4_to_utf8(&c, 1, NULL, NULL, NULL), c, line, col);
 		return false;
 	}
 }
