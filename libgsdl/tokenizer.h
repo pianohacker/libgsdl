@@ -20,6 +20,9 @@ typedef enum {
 typedef struct {
 	GSDLTokenType type;
 
+	guint line;
+	guint col;
+
 	char *val;
 } GSDLToken;
 

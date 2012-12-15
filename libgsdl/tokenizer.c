@@ -1,7 +1,7 @@
-#include <glib.h>
-
 #include "tokenizer.h"
 
+#include <ctype.h>
+#include <glib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,7 +34,7 @@ GSDLTokenizer* gsdl_tokenizer_new(const char *filename, GError **err) {
 	return self;
 }
 
-GSDLTokenizer* gsdl_tokenizer_new_from_string(const char *str, GError *err) {
+GSDLTokenizer* gsdl_tokenizer_new_from_string(const char *str, GError **err) {
 	GSDLTokenizer* self = g_new(GSDLTokenizer, 1);
 	self->stringbuf = g_utf8_to_ucs4(str, -1, NULL, NULL, err);
 
@@ -75,6 +75,9 @@ static bool _read(GSDLTokenizer *self, gunichar *result, GError **err) {
 				self->channel = NULL;
 
 				return true;
+			case G_IO_STATUS_AGAIN:
+			case G_IO_STATUS_NORMAL:
+				break;
 		}
 	}
 
@@ -88,7 +91,7 @@ static bool _read(GSDLTokenizer *self, gunichar *result, GError **err) {
 	return true;
 }
 
-static bool _peek(TokState *self, gunichar *result, GError **err) {
+static bool _peek(GSDLTokenizer *self, gunichar *result, GError **err) {
 	if (!self->peek_avail) {
 		if (self->stringbuf) {
 			if (*(self->stringbuf + 1)) {
@@ -97,7 +100,7 @@ static bool _peek(TokState *self, gunichar *result, GError **err) {
 				*result = EOF;
 			}
 		} else {
-			if (!self->channel == NULL) return false;
+			if (self->channel == NULL) return false;
 
 			switch (g_io_channel_read_unichar(self->channel, &(self->peeked), err)) {
 				case G_IO_STATUS_ERROR:
@@ -108,6 +111,8 @@ static bool _peek(TokState *self, gunichar *result, GError **err) {
 					self->peeked = EOF;
 					g_io_channel_shutdown(self->channel, FALSE, NULL);
 					self->channel = NULL;
+				case G_IO_STATUS_AGAIN:
+				case G_IO_STATUS_NORMAL:
 				default:
 					self->peek_avail = true;
 			}
@@ -142,7 +147,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		*result = _maketoken(T_EOF, line, col);
 		return true;
 	} else if (c == '\r') {
-		if (_peek(self, &c) && c == '\n') _read(self, &c, err);
+		if (_peek(self, &c, err) && c == '\n') _read(self, &c, NULL);
 
 		*result = _maketoken('\n', line, col);
 		return true;
@@ -152,7 +157,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 	} else if (c < 256 && isdigit((char) c)) {
 		*result = _maketoken(T_NUMBER, line, col);
 		int length = 7;
-		char *output = (*result)->contents = g_malloc(length);
+		char *output = (*result)->val = g_malloc(length);
 
 		output[0] = c;
 		int i = 1;
@@ -160,26 +165,26 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		while (_peek(self, &c, err) && c < 256 && isdigit(c)) {
 			if (i == length - 1) {
 				length = length * 2 + 1;
-				output = (*result)->contents = g_realloc(output, length);
+				output = (*result)->val = g_realloc(output, length);
 			}
 
-			_read(self, output + i++, NULL);
+			_read(self, (gunichar*) output + i++, NULL);
 		}
 		output[i] = '\0';
 
 		return true;
-	} else if (g_unichar_is_letter(c) || g_unichar_type(c) == G_UNICODE_CONNECT_PUNCTUATION || g_unichar_type(c) == G_UNICODE_CURRENCY_SYMBOL) {
+	} else if (g_unichar_isalpha(c) || g_unichar_type(c) == G_UNICODE_CONNECT_PUNCTUATION || g_unichar_type(c) == G_UNICODE_CURRENCY_SYMBOL) {
 		*result = _maketoken(T_IDENTIFIER, line, col);
 		int length = 7;
-		char *output = (*result)->contents = g_malloc(length);
+		char *output = (*result)->val = g_malloc(length);
 		GUnicodeType type;
 
 		int i = g_unichar_to_utf8(c, output);
 
-		while (_peek(self, &c, err) && (g_unichar_is_letter(c) || g_unichar_is_digit(c) || (type = g_unichar_type(c)) == G_UNICODE_CURRENCY_SYMBOL || type == G_UNICODE_CONNECT_PUNCTUATION || type == G_UNICODE_LETTER_NUMBER || type == G_UNICODE_SPACING_MARK || type = G_UNICODE_NON_SPACING_MARK)) {
+		while (_peek(self, &c, err) && (g_unichar_isalpha(c) || g_unichar_isdigit(c) || (type = g_unichar_type(c)) == G_UNICODE_CURRENCY_SYMBOL || type == G_UNICODE_CONNECT_PUNCTUATION || type == G_UNICODE_LETTER_NUMBER || type == G_UNICODE_SPACING_MARK || type == G_UNICODE_NON_SPACING_MARK)) {
 			if (i >= length - 5) {
 				length = length * 2 + 1;
-				output = (*result)->contents = g_realloc(output, length);
+				output = (*result)->val = g_realloc(output, length);
 			}
 
 			_read(self, &c, NULL);
