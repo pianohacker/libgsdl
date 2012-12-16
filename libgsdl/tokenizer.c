@@ -98,6 +98,7 @@ static bool _peek(GSDLTokenizer *self, gunichar *result, GError **err) {
 			if (*self->stringbuf) {
 				self->peeked = *(self->stringbuf++);
 			} else {
+				self->stringbuf = NULL;
 				self->peeked = EOF;
 			}
 			self->peek_avail = true;
