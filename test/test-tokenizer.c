@@ -32,7 +32,7 @@ void test_tokenizer_string_comments() {
 	ASSERT_TOKEN(T_EOF);
 	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
 
-	tokenizer = gsdl_tokenizer_new_from_string("2/3 // Comment\ntag # Comment\n52 - 242 -- Comment", &error);
+	tokenizer = gsdl_tokenizer_new_from_string("2/3 // Comment\ntag # Comentario\n52 - 242 -- Comment on the comment", &error);
 
 	g_assert_no_error(error);
 	g_assert(tokenizer != NULL);
