@@ -57,9 +57,11 @@ static bool _read(GSDLTokenizer *self, gunichar *result, GError **err) {
 		if (!*self->stringbuf) {
 			self->stringbuf = NULL;
 			*result = EOF;
+		} else {
+			*result = *(self->stringbuf++);
 		}
 
-		return *(self->stringbuf++);
+		return true;
 	} else {
 		if (G_UNLIKELY(!self->channel)) return false;
 
@@ -73,7 +75,6 @@ static bool _read(GSDLTokenizer *self, gunichar *result, GError **err) {
 				*result = EOF;
 				g_io_channel_shutdown(self->channel, FALSE, NULL);
 				self->channel = NULL;
-
 				return true;
 			case G_IO_STATUS_AGAIN:
 			case G_IO_STATUS_NORMAL:
@@ -94,11 +95,12 @@ static bool _read(GSDLTokenizer *self, gunichar *result, GError **err) {
 static bool _peek(GSDLTokenizer *self, gunichar *result, GError **err) {
 	if (!self->peek_avail) {
 		if (self->stringbuf) {
-			if (*(self->stringbuf + 1)) {
-				self->peeked = *(self->stringbuf + 1);
+			if (*self->stringbuf) {
+				self->peeked = *(self->stringbuf++);
 			} else {
-				*result = EOF;
+				self->peeked = EOF;
 			}
+			self->peek_avail = true;
 		} else {
 			if (self->channel == NULL) return false;
 
@@ -192,7 +194,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		}
 		output[i] = '\0';
 
-		return true;
+		return (err == NULL || *err == NULL);
 	} else if ((c == '/' && _peek(self, &nc, err) && nc == '/') || (c == '-' && _peek(self, &nc, err) && nc == '-') || c == '#') {
 		if (c != '#') _read(self, &c, NULL);
 		while (_peek(self, &c, err) && !(c == '\n' || c == EOF)) _read(self, &c, NULL);
