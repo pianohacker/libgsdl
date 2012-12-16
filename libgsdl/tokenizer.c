@@ -154,7 +154,12 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 
 		*result = _maketoken('\n', line, col);
 		return true;
-	} else if (c < 256 && strchr(":./{}=", (char) c)) {
+	} else if ((c == '/' && _peek(self, &nc, err) && nc == '/') || (c == '-' && _peek(self, &nc, err) && nc == '-') || c == '#') {
+		if (c != '#') _read(self, &c, NULL);
+		while (_peek(self, &c, err) && !(c == '\n' || c == EOF)) _read(self, &c, NULL);
+
+		goto retry;
+	} else if (c < 256 && strchr("-:./{}=\n", (char) c)) {
 		*result = _maketoken(c, line, col);
 		return true;
 	} else if (c < 256 && isdigit((char) c)) {
@@ -171,7 +176,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 				output = (*result)->val = g_realloc(output, length);
 			}
 
-			_read(self, (gunichar*) output + i++, NULL);
+			_read(self, (gunichar*) (output + i++), NULL);
 		}
 		output[i] = '\0';
 
@@ -196,11 +201,6 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		output[i] = '\0';
 
 		return (err == NULL || *err == NULL);
-	} else if ((c == '/' && _peek(self, &nc, err) && nc == '/') || (c == '-' && _peek(self, &nc, err) && nc == '-') || c == '#') {
-		if (c != '#') _read(self, &c, NULL);
-		while (_peek(self, &c, err) && !(c == '\n' || c == EOF)) _read(self, &c, NULL);
-
-		goto retry;
 	} else if (c == ' ' || c == '\t') {
 		// Do nothing
 		goto retry;
