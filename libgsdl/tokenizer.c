@@ -9,6 +9,8 @@
 
 #include "tokenizer.h"
 
+#define GROW_IF_NEEDED(str, i, alloc) if (i >= alloc) { alloc = alloc * 2 + 1; str = g_realloc(str, alloc); }
+
 struct _GSDLTokenizer {
 	GIOChannel *channel;
 	gunichar *stringbuf;
@@ -126,6 +128,12 @@ static bool _peek(GSDLTokenizer *self, gunichar *result, GError **err) {
 	return true;
 }
 
+static void _consume(GSDLTokenizer *self) {
+	g_assert(self->peek_avail);
+
+	self->peek_avail = false;
+}
+
 static GSDLToken* _maketoken(GSDLTokenType type, int line, int col) {
 	GSDLToken *result = g_slice_new(GSDLToken);
 
@@ -150,13 +158,13 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		*result = _maketoken(T_EOF, line, col);
 		return true;
 	} else if (c == '\r') {
-		if (_peek(self, &c, err) && c == '\n') _read(self, &c, NULL);
+		if (_peek(self, &c, err) && c == '\n') _consume(self);
 
 		*result = _maketoken('\n', line, col);
 		return true;
 	} else if ((c == '/' && _peek(self, &nc, err) && nc == '/') || (c == '-' && _peek(self, &nc, err) && nc == '-') || c == '#') {
-		if (c != '#') _read(self, &c, NULL);
-		while (_peek(self, &c, err) && !(c == '\n' || c == EOF)) _read(self, &c, NULL);
+		if (c != '#') _consume(self);
+		while (_peek(self, &c, err) && !(c == '\n' || c == EOF)) _consume(self);
 
 		goto retry;
 	} else if (c < 256 && strchr("-:./{}=\n", (char) c)) {
@@ -164,43 +172,34 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		return true;
 	} else if (c < 256 && isdigit((char) c)) {
 		*result = _maketoken(T_NUMBER, line, col);
-		int length = 7;
-		char *output = (*result)->val = g_malloc(length);
-
-		output[0] = c;
-		int i = 1;
-
-		while (_peek(self, &c, err) && c < 256 && isdigit(c)) {
-			if (i == length - 1) {
-				length = length * 2 + 1;
-				output = (*result)->val = g_realloc(output, length);
-			}
-
-			_read(self, (gunichar*) (output + i++), NULL);
-		}
-		output[i] = '\0';
-
-		return true;
+		return _tokenize_number(self, *result, c, err);
 	} else if (g_unichar_isalpha(c) || g_unichar_type(c) == G_UNICODE_CONNECT_PUNCTUATION || g_unichar_type(c) == G_UNICODE_CURRENCY_SYMBOL) {
 		*result = _maketoken(T_IDENTIFIER, line, col);
-		int length = 7;
-		char *output = (*result)->val = g_malloc(length);
-		GUnicodeType type;
+		return _tokenize_identifier(self, *result, c, err);
+	} else if (c == '[') {
+		*result = _maketoken(T_BINARY, line, col);
+		return _tokenize_binary(self, *result, c, err);
+	} else if (c == '"') {
+		*result = _maketoken(T_STRING, line, col);
+		return _tokenize_string(self, *result, c, err);
+	} else if (c == '\'') {
+		*result = _maketoken(T_CHAR, line, col);
+		(*result)->contents = g_malloc0(1);
 
-		int i = g_unichar_to_utf8(c, output);
+		if (c == '\\') {
+			_read(self, &c, err);
 
-		while (_peek(self, &c, err) && (g_unichar_isalpha(c) || g_unichar_isdigit(c) || (type = g_unichar_type(c)) == G_UNICODE_CURRENCY_SYMBOL || type == G_UNICODE_CONNECT_PUNCTUATION || type == G_UNICODE_LETTER_NUMBER || type == G_UNICODE_SPACING_MARK || type == G_UNICODE_NON_SPACING_MARK)) {
-			if (i >= length - 5) {
-				length = length * 2 + 1;
-				output = (*result)->val = g_realloc(output, length);
+			switch (c) {
+				case 'n': (*result)->contents[0] = '\n'; break;
+				case 'r': (*result)->contents[0] = '\r'; break;
+				case 't': (*result)->contents[0] = '\t'; break;
+				case '"': (*result)->contents[0] = '"'; break;
+				case '\'': (*result)->contents[0] = '\''; break;
+				case '\\': (*result)->contents[0] = '\\'; break;
 			}
-
-			_read(self, &c, NULL);
-			i += g_unichar_to_utf8(c, output + i);
+		} else {
+			(*result)->contents[0] = c;
 		}
-		output[i] = '\0';
-
-		return (err == NULL || *err == NULL);
 	} else if (c == ' ' || c == '\t') {
 		// Do nothing
 		goto retry;
@@ -208,4 +207,90 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		fprintf(stderr, "Invalid character '%s'(%d) at line %d, col %d", g_ucs4_to_utf8(&c, 1, NULL, NULL, NULL), c, line, col);
 		return false;
 	}
+}
+
+static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError *err) {
+	int length = 7;
+	char *output = result->val = g_malloc(length);
+
+	output[0] = c;
+	int i = 1;
+
+	while (_peek(self, &c, err) && c < 256 && isdigit(c)) {
+		GROW_IF_NEEDED(output = result->val, i + 1, length);
+
+		_consume(self);
+		output[i++] = (gunichar) c;
+	}
+
+	char *alnum_part = output + i;
+
+	while (_peek(self, &c, err) && c < 256 && (isalpha(c) || isdigit(c))) {
+		GROW_IF_NEEDED(output = result->val, i + 1, length);
+
+		_consume(self);
+		output[i++] = (gunichar) c;
+	}
+
+	output[i] = '\0';
+
+	if (strcasecmp("bd", alnum_part) == 0) {
+		result->type = T_DECIMAL_END;
+	} else if (strcasecmp("d", alnum_part) == 0) {
+		result->type = T_D_NUMBER;
+	} else if (strcasecmp("f", alnum_part) == 0) {
+		result->type = T_FLOAT_END;
+	} else if (strcasecmp("l", alnum_part) == 0) {
+		result->type = T_LONGINTEGER;
+	} else {
+		// Garbage
+	}
+
+	return true;
+}
+
+static bool _tokenize_identifier(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError *err) {
+	int length = 7;
+	char *output = result->val = g_malloc(length);
+	GUnicodeType type;
+
+	int i = g_unichar_to_utf8(c, output);
+
+	while (_peek(self, &c, err) && (g_unichar_isalpha(c) || g_unichar_isdigit(c) || (type = g_unichar_type(c)) == G_UNICODE_CURRENCY_SYMBOL || type == G_UNICODE_CONNECT_PUNCTUATION || type == G_UNICODE_LETTER_NUMBER || type == G_UNICODE_SPACING_MARK || type == G_UNICODE_NON_SPACING_MARK)) {
+		GROW_IF_NEEDED(output = result->val, i + 5, length);
+
+		_consume(self);
+		i += g_unichar_to_utf8(c, output + i);
+	}
+	output[i] = '\0';
+
+	if (
+			strcmp(output, "true") == 0 ||
+			strcmp(output, "on") == 0 ||
+			strcmp(output, "false") == 0 ||
+			strcmp(output, "off") == 0) {
+		result->type = T_BOOLEAN;
+	}
+
+	return (err == NULL || *err == NULL);
+}
+
+static bool _tokenize_binary(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError *err) {
+	int length = 7;
+	char *output = result->val = g_malloc(length);
+
+	output[0] = c;
+	int i = 1;
+
+	while (_peek(self, &c, err) && c != ']' && c != EOF) {
+		GROW_IF_NEEDED(output = result->val, i, length);
+
+		_consume(self);
+		output[i++] = (gunichar) c;
+	}
+	result->len = i;
+
+	_read(self, c, err);
+
+	return (err == NULL || *err == NULL);
 }

@@ -9,11 +9,13 @@ typedef enum {
 	T_EOF = EOF,
 	T_IDENTIFIER = 256,
 	T_NUMBER,
-	T_LONGINTEGER_END,
+	T_LONGINTEGER,
 	T_FLOAT_END,
 	T_DOUBLE_END,
-	T_DECIMAL_END,
+	T_D_NUMBER,
 	T_BOOLEAN,
+	T_STRING,
+	T_CHAR,
 	T_BINARY,
 } GSDLTokenType;
 
@@ -23,6 +25,7 @@ typedef struct {
 	guint line;
 	guint col;
 
+	size_t len;
 	char *val;
 } GSDLToken;
 
