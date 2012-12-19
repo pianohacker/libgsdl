@@ -144,81 +144,7 @@ static GSDLToken* _maketoken(GSDLTokenType type, int line, int col) {
 	return result;
 }
 
-bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) {
-	gunichar c, nc;
-	int line;
-	int col;
-
-	retry:
-	line = self->line;
-	col = self->col;
-	if (!_read(self, &c, err)) return false;
-
-	if (G_UNLIKELY(c == EOF)) {
-		*result = _maketoken(T_EOF, line, col);
-		return true;
-	} else if (c == '\r') {
-		if (_peek(self, &c, err) && c == '\n') _consume(self);
-
-		*result = _maketoken('\n', line, col);
-		return true;
-	} else if ((c == '/' && _peek(self, &nc, err) && nc == '/') || (c == '-' && _peek(self, &nc, err) && nc == '-') || c == '#') {
-		if (c != '#') _consume(self);
-		while (_peek(self, &c, err) && !(c == '\n' || c == EOF)) _consume(self);
-
-		goto retry;
-	} else if (c < 256 && strchr("-:./{}=\n", (char) c)) {
-		*result = _maketoken(c, line, col);
-		return true;
-	} else if (c < 256 && isdigit((char) c)) {
-		*result = _maketoken(T_NUMBER, line, col);
-		return _tokenize_number(self, *result, c, err);
-	} else if (g_unichar_isalpha(c) || g_unichar_type(c) == G_UNICODE_CONNECT_PUNCTUATION || g_unichar_type(c) == G_UNICODE_CURRENCY_SYMBOL) {
-		*result = _maketoken(T_IDENTIFIER, line, col);
-		return _tokenize_identifier(self, *result, c, err);
-	} else if (c == '[') {
-		*result = _maketoken(T_BINARY, line, col);
-		return _tokenize_binary(self, *result, c, err);
-	} else if (c == '"') {
-		*result = _maketoken(T_STRING, line, col);
-		if (!_tokenize_string(self, *result, c, err)) return false;
-
-		return _read(self, c, err);
-	} else if (c == '`') {
-		*result = _maketoken(T_STRING, line, col);
-		if (!_tokenize_backquote_string(self, *result, c, err)) return false;
-
-		return _read(self, c, err);
-	} else if (c == '\'') {
-		*result = _maketoken(T_CHAR, line, col);
-		(*result)->contents = g_malloc0(1);
-
-		if (c == '\\') {
-			_read(self, &c, err);
-
-			switch (c) {
-				case 'n': (*result)->contents[0] = '\n'; break;
-				case 'r': (*result)->contents[0] = '\r'; break;
-				case 't': (*result)->contents[0] = '\t'; break;
-				case '"': (*result)->contents[0] = '"'; break;
-				case '\'': (*result)->contents[0] = '\''; break;
-				case '\\': (*result)->contents[0] = '\\'; break;
-			}
-		} else {
-			(*result)->contents[0] = c;
-		}
-
-		return _read(self, c, err);
-	} else if (c == ' ' || c == '\t') {
-		// Do nothing
-		goto retry;
-	} else {
-		fprintf(stderr, "Invalid character '%s'(%d) at line %d, col %d", g_ucs4_to_utf8(&c, 1, NULL, NULL, NULL), c, line, col);
-		return false;
-	}
-}
-
-static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError *err) {
+static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError **err) {
 	int length = 7;
 	char *output = result->val = g_malloc(length);
 
@@ -258,7 +184,7 @@ static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 	return true;
 }
 
-static bool _tokenize_identifier(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError *err) {
+static bool _tokenize_identifier(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError **err) {
 	int length = 7;
 	char *output = result->val = g_malloc(length);
 	GUnicodeType type;
@@ -279,12 +205,14 @@ static bool _tokenize_identifier(GSDLTokenizer *self, GSDLToken *result, gunicha
 			strcmp(output, "false") == 0 ||
 			strcmp(output, "off") == 0) {
 		result->type = T_BOOLEAN;
+	} else if (strcmp(output, "null") == 0) {
+		result->type = T_NULL;
 	}
 
 	return (err == NULL || *err == NULL);
 }
 
-static bool _tokenize_binary(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError *err) {
+static bool _tokenize_binary(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError **err) {
 	int length = 7;
 	char *output = result->val = g_malloc(length);
 
@@ -302,7 +230,7 @@ static bool _tokenize_binary(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 	return (err == NULL || *err == NULL);
 }
 
-static bool _tokenize_string(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError *err) {
+static bool _tokenize_string(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError **err) {
 	int length = 7;
 	char *output = result->val = g_malloc(length);
 
@@ -328,7 +256,7 @@ static bool _tokenize_string(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 					_read(self, &c, err);
 				case '\n':
 					output[i++] = '\n';
-					while (peek(self, &c, err) && (c == ' ' || c == '\t')) _consume(self);
+					while (_peek(self, &c, err) && (c == ' ' || c == '\t')) _consume(self);
 			}
 		} else {
 			output[i++] = (gunichar) c;
@@ -339,7 +267,7 @@ static bool _tokenize_string(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 	return (err == NULL || *err == NULL);
 }
 
-static bool _tokenize_backquote_string(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError *err) {
+static bool _tokenize_backquote_string(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError **err) {
 	int length = 7;
 	char *output = result->val = g_malloc(length);
 
@@ -358,4 +286,78 @@ static bool _tokenize_backquote_string(GSDLTokenizer *self, GSDLToken *result, g
 	output[i] = '\0';
 
 	return (err == NULL || *err == NULL);
+}
+
+bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) {
+	gunichar c, nc;
+	int line;
+	int col;
+
+	retry:
+	line = self->line;
+	col = self->col;
+	if (!_read(self, &c, err)) return false;
+
+	if (G_UNLIKELY(c == EOF)) {
+		*result = _maketoken(T_EOF, line, col);
+		return true;
+	} else if (c == '\r') {
+		if (_peek(self, &c, err) && c == '\n') _consume(self);
+
+		*result = _maketoken('\n', line, col);
+		return true;
+	} else if ((c == '/' && _peek(self, &nc, err) && nc == '/') || (c == '-' && _peek(self, &nc, err) && nc == '-') || c == '#') {
+		if (c != '#') _consume(self);
+		while (_peek(self, &c, err) && !(c == '\n' || c == EOF)) _consume(self);
+
+		goto retry;
+	} else if (c < 256 && strchr("-:./{}=\n", (char) c)) {
+		*result = _maketoken(c, line, col);
+		return true;
+	} else if (c < 256 && isdigit((char) c)) {
+		*result = _maketoken(T_NUMBER, line, col);
+		return _tokenize_number(self, *result, c, err);
+	} else if (g_unichar_isalpha(c) || g_unichar_type(c) == G_UNICODE_CONNECT_PUNCTUATION || g_unichar_type(c) == G_UNICODE_CURRENCY_SYMBOL) {
+		*result = _maketoken(T_IDENTIFIER, line, col);
+		return _tokenize_identifier(self, *result, c, err);
+	} else if (c == '[') {
+		*result = _maketoken(T_BINARY, line, col);
+		return _tokenize_binary(self, *result, c, err);
+	} else if (c == '"') {
+		*result = _maketoken(T_STRING, line, col);
+		if (!_tokenize_string(self, *result, c, err)) return false;
+
+		return _read(self, &c, err);
+	} else if (c == '`') {
+		*result = _maketoken(T_STRING, line, col);
+		if (!_tokenize_backquote_string(self, *result, c, err)) return false;
+
+		return _read(self, &c, err);
+	} else if (c == '\'') {
+		*result = _maketoken(T_CHAR, line, col);
+		(*result)->val = g_malloc0(1);
+
+		if (c == '\\') {
+			_read(self, &c, err);
+
+			switch (c) {
+				case 'n': (*result)->val[0] = '\n'; break;
+				case 'r': (*result)->val[0] = '\r'; break;
+				case 't': (*result)->val[0] = '\t'; break;
+				case '"': (*result)->val[0] = '"'; break;
+				case '\'': (*result)->val[0] = '\''; break;
+				case '\\': (*result)->val[0] = '\\'; break;
+			}
+		} else {
+			(*result)->val[0] = c;
+		}
+
+		return _read(self, &c, err);
+	} else if (c == ' ' || c == '\t') {
+		// Do nothing
+		goto retry;
+	} else {
+		fprintf(stderr, "Invalid character '%s'(%d) at line %d, col %d", g_ucs4_to_utf8(&c, 1, NULL, NULL, NULL), c, line, col);
+		return false;
+	}
 }

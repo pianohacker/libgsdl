@@ -50,23 +50,24 @@ void test_tokenizer_string_comments() {
 	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
 }
 
-void test_tokenizer_string_full() {
+void test_tokenizer_string_numbers() {
 	GError *error = NULL;
-	GSDLTokenizer *tokenizer = gsdl_tokenizer_new_from_string("2/3 // Comment\ntag # Comment\n52 - 242 -- Comment", &error);
+	GSDLTokenizer *tokenizer = gsdl_tokenizer_new_from_string("123L 123.43f 52.5D 352.12BD", &error);
 
 	g_assert_no_error(error);
 	g_assert(tokenizer != NULL);
 
 	GSDLToken *token;
-	ASSERT_TOKEN_VAL(T_NUMBER, "2");
-	ASSERT_TOKEN('/');
-	ASSERT_TOKEN_VAL(T_NUMBER, "3");
-	ASSERT_TOKEN('\n');
-	ASSERT_TOKEN_VAL(T_IDENTIFIER, "tag");
-	ASSERT_TOKEN('\n');
+	ASSERT_TOKEN_VAL(T_LONGINTEGER, "2");
+	ASSERT_TOKEN_VAL(T_NUMBER, "123");
+	ASSERT_TOKEN('.');
+	ASSERT_TOKEN_VAL(T_FLOAT_END, "43");
 	ASSERT_TOKEN_VAL(T_NUMBER, "52");
-	ASSERT_TOKEN('-');
-	ASSERT_TOKEN_VAL(T_NUMBER, "242");
+	ASSERT_TOKEN('.');
+	ASSERT_TOKEN_VAL(T_D_NUMBER, "5");
+	ASSERT_TOKEN_VAL(T_NUMBER, "351");
+	ASSERT_TOKEN('.');
+	ASSERT_TOKEN_VAL(T_DECIMAL_END, "12");
 	ASSERT_TOKEN(T_EOF);
 	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
 }
@@ -84,7 +85,7 @@ int main(int argc, char **argv) {
 
 	g_test_add_func("/tokenizer/string_simple", test_tokenizer_string_simple);
 	g_test_add_func("/tokenizer/string_comments", test_tokenizer_string_comments);
-	g_test_add_func("/tokenizer/string_full", test_tokenizer_string_full);
+	g_test_add_func("/tokenizer/string_numbers", test_tokenizer_string_numbers);
 	g_test_add_func("/tokenizer/string_invalid_utf8", test_tokenizer_string_invalid_utf8);
 
 	return g_test_run();
