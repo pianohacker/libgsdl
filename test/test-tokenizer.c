@@ -58,16 +58,51 @@ void test_tokenizer_string_numbers() {
 	g_assert(tokenizer != NULL);
 
 	GSDLToken *token;
-	ASSERT_TOKEN_VAL(T_LONGINTEGER, "2");
+	ASSERT_TOKEN_VAL(T_LONGINTEGER, "123");
 	ASSERT_TOKEN_VAL(T_NUMBER, "123");
 	ASSERT_TOKEN('.');
 	ASSERT_TOKEN_VAL(T_FLOAT_END, "43");
 	ASSERT_TOKEN_VAL(T_NUMBER, "52");
 	ASSERT_TOKEN('.');
 	ASSERT_TOKEN_VAL(T_D_NUMBER, "5");
-	ASSERT_TOKEN_VAL(T_NUMBER, "351");
+	ASSERT_TOKEN_VAL(T_NUMBER, "352");
 	ASSERT_TOKEN('.');
 	ASSERT_TOKEN_VAL(T_DECIMAL_END, "12");
+	ASSERT_TOKEN(T_EOF);
+	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
+}
+
+void test_tokenizer_string_strings() {
+	GError *error = NULL;
+	GSDLTokenizer *tokenizer = gsdl_tokenizer_new_from_string("\"simple\" \"escapes\\t\\\"\" \"multiple \\\n     lines\" `backquote  \r\n  string`", &error);
+
+	g_assert_no_error(error);
+	g_assert(tokenizer != NULL);
+
+	GSDLToken *token;
+	ASSERT_TOKEN_VAL(T_STRING, "simple");
+	ASSERT_TOKEN_VAL(T_STRING, "escapes\t\"");
+	ASSERT_TOKEN_VAL(T_STRING, "multiple \nlines");
+	ASSERT_TOKEN_VAL(T_STRING, "backquote  \n  string");
+	ASSERT_TOKEN(T_EOF);
+	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
+}
+
+void test_tokenizer_string_keywords() {
+	GError *error = NULL;
+	GSDLTokenizer *tokenizer = gsdl_tokenizer_new_from_string("on true ident off nul null false", &error);
+
+	g_assert_no_error(error);
+	g_assert(tokenizer != NULL);
+
+	GSDLToken *token;
+	ASSERT_TOKEN_VAL(T_BOOLEAN, "on");
+	ASSERT_TOKEN_VAL(T_BOOLEAN, "true");
+	ASSERT_TOKEN_VAL(T_IDENTIFIER, "ident");
+	ASSERT_TOKEN_VAL(T_BOOLEAN, "off");
+	ASSERT_TOKEN_VAL(T_IDENTIFIER, "nul");
+	ASSERT_TOKEN_VAL(T_IDENTIFIER, "null");
+	ASSERT_TOKEN_VAL(T_BOOLEAN, "false");
 	ASSERT_TOKEN(T_EOF);
 	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
 }
@@ -83,9 +118,11 @@ void test_tokenizer_string_invalid_utf8() {
 int main(int argc, char **argv) {
 	g_test_init(&argc, &argv, NULL);
 
-	g_test_add_func("/tokenizer/string_simple", test_tokenizer_string_simple);
 	g_test_add_func("/tokenizer/string_comments", test_tokenizer_string_comments);
+	g_test_add_func("/tokenizer/string_keywords", test_tokenizer_string_numbers);
 	g_test_add_func("/tokenizer/string_numbers", test_tokenizer_string_numbers);
+	g_test_add_func("/tokenizer/string_simple", test_tokenizer_string_simple);
+	g_test_add_func("/tokenizer/string_strings", test_tokenizer_string_numbers);
 	g_test_add_func("/tokenizer/string_invalid_utf8", test_tokenizer_string_invalid_utf8);
 
 	return g_test_run();

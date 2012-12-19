@@ -26,7 +26,6 @@ typedef struct {
 	guint line;
 	guint col;
 
-	size_t len;
 	char *val;
 } GSDLToken;
 

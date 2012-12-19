@@ -135,7 +135,7 @@ static void _consume(GSDLTokenizer *self) {
 }
 
 static GSDLToken* _maketoken(GSDLTokenType type, int line, int col) {
-	GSDLToken *result = g_slice_new(GSDLToken);
+	GSDLToken *result = g_slice_new0(GSDLToken);
 
 	result->type = type;
 	result->line = line;
@@ -178,8 +178,10 @@ static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 	} else if (strcasecmp("l", alnum_part) == 0) {
 		result->type = T_LONGINTEGER;
 	} else {
-		// Garbage
+		// FIXME: Garbage
 	}
+
+	*alnum_part = '\0';
 
 	return true;
 }
@@ -225,7 +227,7 @@ static bool _tokenize_binary(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 		_consume(self);
 		output[i++] = (gunichar) c;
 	}
-	result->len = i;
+	output[i] = '\0';
 
 	return (err == NULL || *err == NULL);
 }
