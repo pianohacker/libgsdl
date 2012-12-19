@@ -74,7 +74,7 @@ void test_tokenizer_string_numbers() {
 
 void test_tokenizer_string_strings() {
 	GError *error = NULL;
-	GSDLTokenizer *tokenizer = gsdl_tokenizer_new_from_string("\"simple\" \"escapes\\t\\\"\" \"multiple \\\n     lines\" `backquote  \r\n  string`", &error);
+	GSDLTokenizer *tokenizer = gsdl_tokenizer_new_from_string("\"simple\" \"escapes\\t\\\"\" \"multiple \\\n     lines\" `backquote  \r\n  st\\ring`", &error);
 
 	g_assert_no_error(error);
 	g_assert(tokenizer != NULL);
@@ -83,7 +83,7 @@ void test_tokenizer_string_strings() {
 	ASSERT_TOKEN_VAL(T_STRING, "simple");
 	ASSERT_TOKEN_VAL(T_STRING, "escapes\t\"");
 	ASSERT_TOKEN_VAL(T_STRING, "multiple \nlines");
-	ASSERT_TOKEN_VAL(T_STRING, "backquote  \n  string");
+	ASSERT_TOKEN_VAL(T_STRING, "backquote  \n  st\\ring");
 	ASSERT_TOKEN(T_EOF);
 	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
 }
