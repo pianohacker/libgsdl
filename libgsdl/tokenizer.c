@@ -181,7 +181,14 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		return _tokenize_binary(self, *result, c, err);
 	} else if (c == '"') {
 		*result = _maketoken(T_STRING, line, col);
-		return _tokenize_string(self, *result, c, err);
+		if (!_tokenize_string(self, *result, c, err)) return false;
+
+		return _read(self, c, err);
+	} else if (c == '`') {
+		*result = _maketoken(T_STRING, line, col);
+		if (!_tokenize_backquote_string(self, *result, c, err)) return false;
+
+		return _read(self, c, err);
 	} else if (c == '\'') {
 		*result = _maketoken(T_CHAR, line, col);
 		(*result)->contents = g_malloc0(1);
@@ -200,6 +207,8 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		} else {
 			(*result)->contents[0] = c;
 		}
+
+		return _read(self, c, err);
 	} else if (c == ' ' || c == '\t') {
 		// Do nothing
 		goto retry;
@@ -290,7 +299,63 @@ static bool _tokenize_binary(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 	}
 	result->len = i;
 
-	_read(self, c, err);
+	return (err == NULL || *err == NULL);
+}
+
+static bool _tokenize_string(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError *err) {
+	int length = 7;
+	char *output = result->val = g_malloc(length);
+
+	output[0] = c;
+	int i = 1;
+
+	while (_peek(self, &c, err) && c != '"' && c != EOF) {
+		GROW_IF_NEEDED(output = result->val, i, length);
+
+		_consume(self);
+
+		if (c == '\\') {
+			_read(self, &c, err);
+
+			switch (c) {
+				case 'n': output[i++] = '\n'; break;
+				case 'r': output[i++] = '\r'; break;
+				case 't': output[i++] = '\t'; break;
+				case '"': output[i++] = '"'; break;
+				case '\'': output[i++] = '\"'; break;
+				case '\\': output[i++] = '\\'; break;
+				case '\r':
+					_read(self, &c, err);
+				case '\n':
+					output[i++] = '\n';
+					while (peek(self, &c, err) && (c == ' ' || c == '\t')) _consume(self);
+			}
+		} else {
+			output[i++] = (gunichar) c;
+		}
+	}
+	output[i] = '\0';
+
+	return (err == NULL || *err == NULL);
+}
+
+static bool _tokenize_backquote_string(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError *err) {
+	int length = 7;
+	char *output = result->val = g_malloc(length);
+
+	output[0] = c;
+	int i = 1;
+
+	while (_peek(self, &c, err) && c != '`' && c != EOF) {
+		GROW_IF_NEEDED(output = result->val, i, length);
+
+		_consume(self);
+
+		if (c == '\r') _read(self, &c, err);
+
+		output[i++] = (gunichar) c;
+	}
+	output[i] = '\0';
 
 	return (err == NULL || *err == NULL);
 }
