@@ -175,6 +175,8 @@ void test_tokenizer_file_full() {
 	ASSERT_TOKEN_VAL(T_NULL, "null");
 	ASSERT_TOKEN(T_EOF);
 	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
+
+	g_unlink(filename);
 }
 
 void test_tokenizer_string_invalid_utf8() {
