@@ -214,30 +214,30 @@ static bool _tokenize_identifier(GSDLTokenizer *self, GSDLToken *result, gunicha
 	return (err == NULL || *err == NULL);
 }
 
-static bool _tokenize_binary(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError **err) {
+static bool _tokenize_binary(GSDLTokenizer *self, GSDLToken *result, GError **err) {
 	int length = 7;
+	gunichar c;
 	char *output = result->val = g_malloc(length);
-
-	output[0] = c;
-	int i = 1;
+	int i = 0;
 
 	while (_peek(self, &c, err) && c != ']' && c != EOF) {
-		GROW_IF_NEEDED(output = result->val, i, length);
-
 		_consume(self);
-		output[i++] = (gunichar) c;
+
+		if (c < 256 && (isalpha((char) c) || isdigit((char) c) || strchr("+/=", (char) c))) {
+			GROW_IF_NEEDED(output = result->val, i, length);
+			output[i++] = (gunichar) c;
+		}
 	}
 	output[i] = '\0';
 
 	return (err == NULL || *err == NULL);
 }
 
-static bool _tokenize_string(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError **err) {
+static bool _tokenize_string(GSDLTokenizer *self, GSDLToken *result, GError **err) {
 	int length = 7;
+	gunichar c;
 	char *output = result->val = g_malloc(length);
-
-	output[0] = c;
-	int i = 1;
+	int i = 0;
 
 	while (_peek(self, &c, err) && c != '"' && c != EOF) {
 		GROW_IF_NEEDED(output = result->val, i, length);
@@ -261,7 +261,7 @@ static bool _tokenize_string(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 					while (_peek(self, &c, err) && (c == ' ' || c == '\t')) _consume(self);
 			}
 		} else {
-			output[i++] = (gunichar) c;
+			i += g_unichar_to_utf8(c, output + i);
 		}
 	}
 	output[i] = '\0';
@@ -269,12 +269,11 @@ static bool _tokenize_string(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 	return (err == NULL || *err == NULL);
 }
 
-static bool _tokenize_backquote_string(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError **err) {
+static bool _tokenize_backquote_string(GSDLTokenizer *self, GSDLToken *result, GError **err) {
 	int length = 7;
+	gunichar c;
 	char *output = result->val = g_malloc(length);
-
-	output[0] = c;
-	int i = 1;
+	int i = 0;
 
 	while (_peek(self, &c, err) && c != '`' && c != EOF) {
 		GROW_IF_NEEDED(output = result->val, i, length);
@@ -283,7 +282,7 @@ static bool _tokenize_backquote_string(GSDLTokenizer *self, GSDLToken *result, g
 
 		if (c == '\r') _read(self, &c, err);
 
-		output[i++] = (gunichar) c;
+		i += g_unichar_to_utf8(c, output + i);
 	}
 	output[i] = '\0';
 
@@ -324,37 +323,47 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		return _tokenize_identifier(self, *result, c, err);
 	} else if (c == '[') {
 		*result = _maketoken(T_BINARY, line, col);
-		return _tokenize_binary(self, *result, c, err);
+		if (!_tokenize_binary(self, *result, err)) return false;
+
+		return _read(self, &c, err);
 	} else if (c == '"') {
 		*result = _maketoken(T_STRING, line, col);
-		if (!_tokenize_string(self, *result, c, err)) return false;
+		if (!_tokenize_string(self, *result, err)) return false;
 
 		return _read(self, &c, err);
 	} else if (c == '`') {
 		*result = _maketoken(T_STRING, line, col);
-		if (!_tokenize_backquote_string(self, *result, c, err)) return false;
+		if (!_tokenize_backquote_string(self, *result, err)) return false;
 
 		return _read(self, &c, err);
 	} else if (c == '\'') {
 		*result = _maketoken(T_CHAR, line, col);
-		(*result)->val = g_malloc0(1);
+		(*result)->val = g_malloc0(4);
+
+		_read(self, &c, err);
 
 		if (c == '\\') {
 			_read(self, &c, err);
 
 			switch (c) {
-				case 'n': (*result)->val[0] = '\n'; break;
-				case 'r': (*result)->val[0] = '\r'; break;
-				case 't': (*result)->val[0] = '\t'; break;
-				case '"': (*result)->val[0] = '"'; break;
-				case '\'': (*result)->val[0] = '\''; break;
-				case '\\': (*result)->val[0] = '\\'; break;
+				case 'n': c = '\n'; break;
+				case 'r': c = '\r'; break;
+				case 't': c = '\t'; break;
+				case '"': c = '"'; break;
+				case '\'': c = '\''; break;
+				case '\\': c = '\\'; break;
 			}
-		} else {
-			(*result)->val[0] = c;
 		}
 
+		g_unichar_to_utf8(c, (*result)->val); 
+
 		return _read(self, &c, err);
+	} else if (c == '\\' && _peek(self, &nc, err) && (nc == '\r' || nc == '\n')) {
+		_consume(self);
+
+		if (c == '\r') _read(self, &c, err);
+
+		goto retry;
 	} else if (c == ' ' || c == '\t') {
 		// Do nothing
 		goto retry;
