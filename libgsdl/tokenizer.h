@@ -32,23 +32,16 @@ typedef struct {
 
 typedef struct _GSDLTokenizer GSDLTokenizer;
 
-//> Error Definitions
-#define GSDL_TOKENIZER_ERROR gsdl_tokenizer_error_quark()
-
-typedef enum {
-	GSDL_TOKENIZER_ERROR_UNEXPECTED_CHAR,
-	GSDL_TOKENIZER_ERROR_MISSING_DELIMITER,
-} GSDLTokenizerError;
-
-extern GQuark gsdl_tokenizer_error_quark();
-
 //> Exported Functions
 extern GSDLTokenizer* gsdl_tokenizer_new(const char *filename, GError **err);
 extern GSDLTokenizer* gsdl_tokenizer_new_from_string(const char *str, GError **err);
 
 extern bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **token, GError **err);
+extern char* gsdl_tokenizer_get_filename(GSDLTokenizer *self);
 
 extern void gsdl_tokenizer_free(GSDLTokenizer *self);
+
+extern char* gsdl_token_type_name(GSDLTokenType token_type);
 extern void gsdl_token_free(GSDLToken *token);
 
 #endif

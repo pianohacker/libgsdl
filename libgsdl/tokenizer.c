@@ -1,5 +1,3 @@
-#include "tokenizer.h"
-
 #include <ctype.h>
 #include <glib.h>
 #include <stdio.h>
@@ -7,12 +5,15 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "syntax.h"
 #include "tokenizer.h"
 
+//> Macros
 #define FAIL_IF_ERR() if ((err != NULL) && (*err != NULL)) return false;
 #define GROW_IF_NEEDED(str, i, alloc) if (i >= alloc) { alloc = alloc * 2 + 1; str = g_realloc(str, alloc); }
 #define REQUIRE(expr) if (!expr) return false;
 
+//> Internal Types
 struct _GSDLTokenizer {
 	char *filename;
 	GIOChannel *channel;
@@ -25,6 +26,23 @@ struct _GSDLTokenizer {
 	gunichar peeked;
 };
 
+//> Static Data
+static char **TOKEN_NAMES = {
+	"EOF",
+	"identifier",
+	"number",
+	"long integer",
+	"float suffix",
+	"decimal suffix",
+	"days/double suffix",
+	"boolean",
+	"null",
+	"string",
+	"character",
+	"binary",
+};
+
+//> Public Functions
 GSDLTokenizer* gsdl_tokenizer_new(const char *filename, GError **err) {
 	GSDLTokenizer* self = g_new(GSDLTokenizer, 1);
 	self->filename = g_strdup(filename);
@@ -55,8 +73,8 @@ GSDLTokenizer* gsdl_tokenizer_new_from_string(const char *str, GError **err) {
 	return self;
 }
 
-GQuark gsdl_tokenizer_error_quark() {
-	return g_quark_from_static_string("gsdl-tokenizer-error-quark");
+char* gsdl_tokenizer_get_filename(GSDLTokenizer *self) {
+	return self->filename;
 }
 
 void gsdl_tokenizer_free() {
@@ -70,6 +88,17 @@ void gsdl_tokenizer_free() {
 	if (self->stringbuf) g_free(self->stringbuf);
 
 	g_free(self);
+}
+
+extern char* gsdl_token_type_name(GSDLTokenType token_type) {
+	static char buffer[4] = "' '";
+
+	if (0 <= token_type || token_type < 256) {
+		buffer[1] = token;
+		return buffer;
+	} else {
+		return TOKEN_NAMES[token_type == EOF ? 0 : (token_type - 255)];
+	}
 }
 
 extern void gsdl_token_free(GSDLToken *token) {
@@ -174,9 +203,9 @@ static GSDLToken* _maketoken(GSDLTokenType type, int line, int col) {
 	return result;
 }
 
-static void _set_error(GError **err, GSDLTokenizer *self, GSDLTokenizerError err_type, char *msg) {
+static void _set_error(GError **err, GSDLTokenizer *self, GSDLSyntaxError err_type, char *msg) {
 	g_set_error(err,
-		GSDL_TOKENIZER_ERROR,
+		GSDL_SYNTAX_ERROR,
 		err_type,
 		"%s in %s, line %d, column %d",
 		msg,
@@ -225,7 +254,7 @@ static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 	} else if (strcasecmp("l", alnum_part) == 0) {
 		result->type = T_LONGINTEGER;
 	} else {
-		_set_error(err, self, GSDL_TOKENIZER_ERROR_UNEXPECTED_CHAR, g_strdup_printf("Unexpected number suffix: %s", alnum_part));
+		_set_error(err, self, GSDL_SYNTAX_ERROR_UNEXPECTED_CHAR, g_strdup_printf("Unexpected number suffix: %s", alnum_part));
 		return false;
 	}
 
@@ -390,7 +419,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		} else {
 			_set_error(err,
 				self,
-				GSDL_TOKENIZER_ERROR_MISSING_DELIMITER,
+				GSDL_SYNTAX_ERROR_MISSING_DELIMITER,
 				"Missing ']'",
 			);
 			return false;
@@ -405,7 +434,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		} else {
 			_set_error(err,
 				self,
-				GSDL_TOKENIZER_ERROR_MISSING_DELIMITER,
+				GSDL_SYNTAX_ERROR_MISSING_DELIMITER,
 				"Missing '\"'",
 			);
 			return false;
@@ -420,7 +449,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		} else {
 			_set_error(err,
 				self,
-				GSDL_TOKENIZER_ERROR_MISSING_DELIMITER,
+				GSDL_SYNTAX_ERROR_MISSING_DELIMITER,
 				"Missing '`'",
 			);
 			return false;
@@ -452,7 +481,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		} else {
 			_set_error(err,
 				self,
-				GSDL_TOKENIZER_ERROR_MISSING_DELIMITER,
+				GSDL_SYNTAX_ERROR_MISSING_DELIMITER,
 				"Missing \"'\"",
 			);
 			return false;
@@ -469,7 +498,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 	} else {
 		_set_error(err,
 			self,
-			GSDL_TOKENIZER_ERROR_UNEXPECTED_CHAR,
+			GSDL_SYNTAX_ERROR_UNEXPECTED_CHAR,
 		   	g_strdup_printf("Invalid character '%s'(%d)", g_ucs4_to_utf8(&c, 1, NULL, NULL, NULL));
 		);
 		return false;

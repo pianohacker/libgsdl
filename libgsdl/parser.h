@@ -8,9 +8,9 @@ typedef struct {
 	void (*start_tag)(
 		GSDLParserContext *context,
 		const char *name,
+		const GValue **values,
 		const char **attr_names,
 		const GValue **attr_values,
-		const GValue **values,
 		gpointer user_data,
 		GError **error,
 	);
