@@ -27,7 +27,7 @@ struct _GSDLTokenizer {
 };
 
 //> Static Data
-static char **TOKEN_NAMES = {
+static char *TOKEN_NAMES[12] = {
 	"EOF",
 	"identifier",
 	"number",
@@ -77,7 +77,7 @@ char* gsdl_tokenizer_get_filename(GSDLTokenizer *self) {
 	return self->filename;
 }
 
-void gsdl_tokenizer_free() {
+void gsdl_tokenizer_free(GSDLTokenizer *self) {
 	g_free(self->filename);
 
 	if (self->channel) {
@@ -94,7 +94,7 @@ extern char* gsdl_token_type_name(GSDLTokenType token_type) {
 	static char buffer[4] = "' '";
 
 	if (0 <= token_type || token_type < 256) {
-		buffer[1] = token;
+		buffer[1] = token_type;
 		return buffer;
 	} else {
 		return TOKEN_NAMES[token_type == EOF ? 0 : (token_type - 255)];
@@ -211,7 +211,7 @@ static void _set_error(GError **err, GSDLTokenizer *self, GSDLSyntaxError err_ty
 		msg,
 		self->filename,
 		self->line,
-		self->col,
+		self->col
 	);
 }
 
@@ -394,7 +394,9 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		if (_peek(self, &c, err) && c == '\n') _consume(self);
 
 		*result = _maketoken('\n', line, col);
-		return IS_NO_ERR;
+		FAIL_IF_ERR();
+
+		return true;
 	} else if ((c == '/' && _peek(self, &nc, err) && nc == '/') || (c == '-' && _peek(self, &nc, err) && nc == '-') || c == '#') {
 		if (c != '#') _consume(self);
 		while (_peek(self, &c, err) && !(c == '\n' || c == EOF)) _consume(self);
@@ -420,7 +422,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 			_set_error(err,
 				self,
 				GSDL_SYNTAX_ERROR_MISSING_DELIMITER,
-				"Missing ']'",
+				"Missing ']'"
 			);
 			return false;
 		}
@@ -435,7 +437,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 			_set_error(err,
 				self,
 				GSDL_SYNTAX_ERROR_MISSING_DELIMITER,
-				"Missing '\"'",
+				"Missing '\"'"
 			);
 			return false;
 		}
@@ -450,7 +452,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 			_set_error(err,
 				self,
 				GSDL_SYNTAX_ERROR_MISSING_DELIMITER,
-				"Missing '`'",
+				"Missing '`'"
 			);
 			return false;
 		}
@@ -482,7 +484,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 			_set_error(err,
 				self,
 				GSDL_SYNTAX_ERROR_MISSING_DELIMITER,
-				"Missing \"'\"",
+				"Missing \"'\""
 			);
 			return false;
 		}
@@ -499,7 +501,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		_set_error(err,
 			self,
 			GSDL_SYNTAX_ERROR_UNEXPECTED_CHAR,
-		   	g_strdup_printf("Invalid character '%s'(%d)", g_ucs4_to_utf8(&c, 1, NULL, NULL, NULL));
+		   	g_strdup_printf("Invalid character '%s'(%d)", g_ucs4_to_utf8(&c, 1, NULL, NULL, NULL), c)
 		);
 		return false;
 	}

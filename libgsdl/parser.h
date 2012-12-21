@@ -2,35 +2,36 @@
 #define __PARSER_H__
 
 #include <glib.h>
+#include <glib-object.h>
 #include <stdbool.h>
+
+typedef struct _GSDLParserContext GSDLParserContext;
 
 typedef struct {
 	void (*start_tag)(
 		GSDLParserContext *context,
-		const char *name,
-		const GValue **values,
-		const char **attr_names,
-		const GValue **attr_values,
+		const gchar *name,
+		GValue* const *values,
+		gchar* const *attr_names,
+		GValue* const *attr_values,
 		gpointer user_data,
-		GError **error,
+		GError **err
 	);
 
 	void (*end_tag)(
 		GSDLParserContext *context,
-		const char *name,
+		const gchar *name,
 		gpointer user_data,
-		GError **error,
+		GError **errr
 	);
 
 	void (*error)(
 		GSDLParserContext *context,
-		GError *error,
-		gpointer user_data;
+		GError *errr,
+		gpointer user_data
 	);
 
 } GSDLParser;
-
-typedef struct _GSDLParserContext GSDLParserContext;
 
 extern GSDLParserContext* gsdl_parser_context_new(GSDLParser *parser, gpointer user_data);
 

@@ -1,9 +1,15 @@
+#include <glib.h>
+#include <glib-object.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "parser.h"
 #include "syntax.h"
 #include "tokenizer.h"
 
 struct _GSDLParserContext {
-	GSDLTokenizer *cur_tokenizer;
+	GSDLTokenizer *tokenizer;
 	GSDLToken *peek_token;
 
 	GSDLParser *parser;
@@ -13,15 +19,17 @@ struct _GSDLParserContext {
 	GSList *data_stack;
 };
 
-#define EXPECT(...) if (!_expect(token, __VA_ARGS___)) return false;
-#define MAYBE_CALLBACK(callback, ...) if (callback) callback(__VA_ARGS___)
+#define EXPECT(...) if (!_expect(self, token, __VA_ARGS__, 0)) return false;
+#define MAYBE_CALLBACK(callback, ...) if (callback) callback(__VA_ARGS__)
 #define REQUIRE(expr) if (!expr) return false;
 
 GSDLParserContext* gsdl_parser_context_new(GSDLParser *parser, gpointer user_data) {
-	GSDLParserContext *self = g_new0(GSDLParserContext);
+	GSDLParserContext *self = g_new0(GSDLParserContext, 1);
 
 	self->parser = parser;
 	self->user_data = user_data;
+
+	return self;
 }
 
 void gsdl_parser_context_push(GSDLParserContext *self, GSDLParser *parser, gpointer user_data) {
@@ -47,10 +55,10 @@ gpointer gsdl_parser_context_pop(GSDLParserContext *self) {
 }
 
 static bool _read(GSDLParserContext *self, GSDLToken **token) {
-	if (self->peek_token)
+	if (self->peek_token) {
 		GSDLToken *result = self->peek_token;
 		self->peek_token = NULL;
-		*token = self->peek_token;
+		*token = result;
 
 		return true;
 	} else {
@@ -66,7 +74,7 @@ static bool _read(GSDLParserContext *self, GSDLToken **token) {
 }
 
 static bool _peek(GSDLParserContext *self, GSDLToken **token) {
-	if (self->peek_token)
+	if (self->peek_token) {
 		*token = self->peek_token;
 
 		return true;
@@ -83,7 +91,7 @@ static bool _peek(GSDLParserContext *self, GSDLToken **token) {
 	}
 }
 
-static bool _consume(GSDLParserContext *self) {
+static void _consume(GSDLParserContext *self) {
 	g_assert(self->peek_token != NULL);
 
 	self->peek_token = NULL;
@@ -98,9 +106,49 @@ static void _error(GSDLParserContext *self, GSDLToken *token, GSDLSyntaxError er
 		msg,
 		gsdl_tokenizer_get_filename(self->tokenizer),
 		token->line,
-		token->col,
+		token->col
 	);
 	MAYBE_CALLBACK(self->parser->error, self, err, self->user_data);
+}
+
+static bool _expect(GSDLParserContext *self, GSDLToken *token, ...) {
+	va_list args;
+	GSDLTokenType type;
+
+	va_start(args, token);
+
+	while (type = va_arg(args, GSDLTokenType), type != 0 && token->type != type);
+
+	va_end(args);
+
+	if (type == 0) {
+		GString *err_string = g_string_new("");
+		g_string_sprintf(err_string, "Unexpected %s, expected one of: ", gsdl_token_type_name(token->type));
+
+		va_start(args, token);
+		type = va_arg(args, GSDLTokenType);
+
+		g_string_append(err_string, gsdl_token_type_name(type));
+		while (type = va_arg(args, GSDLTokenType), type != 0) {
+			g_string_append(err_string, ", ");
+			g_string_append(err_string, gsdl_token_type_name(type));
+		}
+
+		va_end(args);
+
+		_error(
+			self,
+			token, 
+			GSDL_SYNTAX_ERROR_MALFORMED,
+			err_string->str
+		);
+
+		g_string_free(err_string, TRUE);
+
+		return false;
+	} else {
+		return true;
+	}
 }
 
 //> Parser Functions
@@ -121,12 +169,12 @@ static bool _token_is_value(GSDLToken *token) {
 }
 
 static bool _parse_value(GSDLParserContext *self, GValue *value) {
+	char *end;
 	GSDLToken *token;
 	REQUIRE(_read(self, &token));
 
 	switch (token->type) {
 		case T_LONGINTEGER:
-			char *end;
 			g_value_init(value, G_TYPE_LONG);
 			g_value_set_long(value, strtol(token->val, &end, 10));
 
@@ -139,7 +187,7 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 			g_free(token);
 			return true;
 
-		case T_BOOLEAN;
+		case T_BOOLEAN:
 			g_value_init(value, G_TYPE_BOOLEAN);
 
 			if (strcmp(token->val, "true") == 0 || strcmp(token->val, "on") == 0) {
@@ -151,7 +199,7 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 			g_free(token);
 			return true;
 
-		case T_NULL;
+		case T_NULL:
 			return true;
 
 		case T_STRING:
@@ -162,8 +210,7 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 			return true;
 
 		default:
-			g_fail_if_reached();
-			return false;
+			g_return_val_if_reached(false);
 	}
 }
 
@@ -173,7 +220,7 @@ static bool _parse_tag(GSDLParserContext *self) {
 
 	GArray *values = g_array_new(TRUE, FALSE, sizeof(GValue));
 
-	GArray *attr_names = g_array_new(TRUE, FALSE, sizeof(char*));
+	GArray *attr_names = g_array_new(TRUE, FALSE, sizeof(gchar*));
 	GArray *attr_values = g_array_new(TRUE, FALSE, sizeof(GValue));
 
 	REQUIRE(_peek(self, &first));
@@ -187,7 +234,8 @@ static bool _parse_tag(GSDLParserContext *self) {
 			_error(
 				self,
 				first,
-				"At least one value required for an anonymous tag",
+				GSDL_SYNTAX_ERROR_MALFORMED,
+				"At least one value required for an anonymous tag"
 			);
 
 			return false;
@@ -211,7 +259,8 @@ static bool _parse_tag(GSDLParserContext *self) {
 
 	while ((_peek(self, &token) || (peek_success = false)) && token->type == T_IDENTIFIER) {
 		_consume(self);
-		g_array_append_val(attr_names, g_strdup(token->val));
+		char *contents = g_strdup(token->val);
+		g_array_append_val(attr_names, contents);
 		gsdl_token_free(token);
 
 		GValue value = G_VALUE_INIT;
@@ -226,11 +275,11 @@ static bool _parse_tag(GSDLParserContext *self) {
 	MAYBE_CALLBACK(self->parser->start_tag,
 		self,
 		name,
-		&values->data,
-		attr_names->data,
-		&attr_values->data,
+		(GValue**) &values->data,
+		(gchar**) attr_names->data,
+		(GValue**) &attr_values->data,
 		self->user_data,
-		&err,
+		&err
 	);
 	if (err) {
 		MAYBE_CALLBACK(self->parser->error, self, err, self->user_data);
@@ -249,12 +298,12 @@ static bool _parse_tag(GSDLParserContext *self) {
 		REQUIRE(_read(self, &token));
 	}
 
-	GError *err = NULL;
+	err = NULL;
 	MAYBE_CALLBACK(self->parser->end_tag,
 		self,
 		name,
 		self->user_data,
-		&err,
+		&err
 	);
 	if (err) {
 		MAYBE_CALLBACK(self->parser->error, self, err, self->user_data);
@@ -268,7 +317,7 @@ static bool _parse_tag(GSDLParserContext *self) {
 }
 
 static bool _parse(GSDLParserContext *self) {
-	_types_init();
+	/*_types_init();*/
 
 	GSDLToken *token;
 	for (;;) {
@@ -277,9 +326,11 @@ static bool _parse(GSDLParserContext *self) {
 		if (token->type == T_EOF) {
 			break;
 		} else {
-			_parse_tag(self);
+			REQUIRE(_parse_tag(self));
 		}
 	}
+
+	return true;
 }
 
 bool gsdl_parser_context_parse_file(GSDLParserContext *self, const char *filename) {
