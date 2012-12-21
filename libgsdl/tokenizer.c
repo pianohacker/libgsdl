@@ -9,9 +9,12 @@
 
 #include "tokenizer.h"
 
+#define FAIL_IF_ERR() if ((err != NULL) && (*err != NULL)) return false;
 #define GROW_IF_NEEDED(str, i, alloc) if (i >= alloc) { alloc = alloc * 2 + 1; str = g_realloc(str, alloc); }
+#define REQUIRE(expr) if (!expr) return false;
 
 struct _GSDLTokenizer {
+	char *filename;
 	GIOChannel *channel;
 	gunichar *stringbuf;
 	
@@ -24,6 +27,7 @@ struct _GSDLTokenizer {
 
 GSDLTokenizer* gsdl_tokenizer_new(const char *filename, GError **err) {
 	GSDLTokenizer* self = g_new(GSDLTokenizer, 1);
+	self->filename = g_strdup(filename);
 	self->channel = g_io_channel_new_file(filename, "r", err);
 
 	if (!self->channel) return NULL;
@@ -38,6 +42,7 @@ GSDLTokenizer* gsdl_tokenizer_new(const char *filename, GError **err) {
 
 GSDLTokenizer* gsdl_tokenizer_new_from_string(const char *str, GError **err) {
 	GSDLTokenizer* self = g_new(GSDLTokenizer, 1);
+	self->filename = "<string>";
 	self->stringbuf = g_utf8_to_ucs4(str, -1, NULL, NULL, err);
 
 	if (!self->stringbuf) return NULL;
@@ -50,7 +55,11 @@ GSDLTokenizer* gsdl_tokenizer_new_from_string(const char *str, GError **err) {
 	return self;
 }
 
-//> Utility Functions
+GQuark gsdl_tokenizer_error_quark() {
+	return g_quark_from_static_string("gsdl-tokenizer-error-quark");
+}
+
+//> Internal Functions
 static bool _read(GSDLTokenizer *self, gunichar *result, GError **err) {
 	if (self->peek_avail) {
 		*result = self->peeked;
@@ -144,6 +153,19 @@ static GSDLToken* _maketoken(GSDLTokenType type, int line, int col) {
 	return result;
 }
 
+static void _set_error(GError **err, GSDLTokenizer *self, GSDLTokenizerError err_type, char *msg) {
+	g_set_error(err,
+		GSDL_TOKENIZER_ERROR,
+		err_type,
+		"%s in %s, line %d, column %d",
+		msg,
+		self->filename,
+		self->line,
+		self->col,
+	);
+}
+
+//> Sub-tokenizers
 static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c, GError **err) {
 	int length = 7;
 	char *output = result->val = g_malloc(length);
@@ -158,6 +180,8 @@ static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 		output[i++] = (gunichar) c;
 	}
 
+	FAIL_IF_ERR();
+
 	char *alnum_part = output + i;
 
 	while (_peek(self, &c, err) && c < 256 && (isalpha(c) || isdigit(c))) {
@@ -166,6 +190,8 @@ static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 		_consume(self);
 		output[i++] = (gunichar) c;
 	}
+
+	FAIL_IF_ERR();
 
 	output[i] = '\0';
 
@@ -178,7 +204,8 @@ static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 	} else if (strcasecmp("l", alnum_part) == 0) {
 		result->type = T_LONGINTEGER;
 	} else {
-		// FIXME: Garbage
+		_set_error(err, self, GSDL_TOKENIZER_ERROR_UNEXPECTED_CHAR, g_strdup_printf("Unexpected number suffix: %s", alnum_part));
+		return false;
 	}
 
 	*alnum_part = '\0';
@@ -199,6 +226,8 @@ static bool _tokenize_identifier(GSDLTokenizer *self, GSDLToken *result, gunicha
 		_consume(self);
 		i += g_unichar_to_utf8(c, output + i);
 	}
+
+	FAIL_IF_ERR();
 	output[i] = '\0';
 
 	if (
@@ -211,7 +240,7 @@ static bool _tokenize_identifier(GSDLTokenizer *self, GSDLToken *result, gunicha
 		result->type = T_NULL;
 	}
 
-	return (err == NULL || *err == NULL);
+	return true;
 }
 
 static bool _tokenize_binary(GSDLTokenizer *self, GSDLToken *result, GError **err) {
@@ -228,9 +257,11 @@ static bool _tokenize_binary(GSDLTokenizer *self, GSDLToken *result, GError **er
 			output[i++] = (gunichar) c;
 		}
 	}
+
+	FAIL_IF_ERR();
 	output[i] = '\0';
 
-	return (err == NULL || *err == NULL);
+	return false);
 }
 
 static bool _tokenize_string(GSDLTokenizer *self, GSDLToken *result, GError **err) {
@@ -259,14 +290,19 @@ static bool _tokenize_string(GSDLTokenizer *self, GSDLToken *result, GError **er
 				case '\n':
 					output[i++] = '\n';
 					while (_peek(self, &c, err) && (c == ' ' || c == '\t')) _consume(self);
+					break;
+				default:
+					i += g_unichar_to_utf8(c, output + i);
 			}
 		} else {
 			i += g_unichar_to_utf8(c, output + i);
 		}
 	}
+
+	FAIL_IF_ERR();
 	output[i] = '\0';
 
-	return (err == NULL || *err == NULL);
+	return true;
 }
 
 static bool _tokenize_backquote_string(GSDLTokenizer *self, GSDLToken *result, GError **err) {
@@ -284,9 +320,11 @@ static bool _tokenize_backquote_string(GSDLTokenizer *self, GSDLToken *result, G
 
 		i += g_unichar_to_utf8(c, output + i);
 	}
+
+	FAIL_IF_ERR();
 	output[i] = '\0';
 
-	return (err == NULL || *err == NULL);
+	return true;
 }
 
 bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) {
@@ -306,7 +344,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		if (_peek(self, &c, err) && c == '\n') _consume(self);
 
 		*result = _maketoken('\n', line, col);
-		return true;
+		return IS_NO_ERR;
 	} else if ((c == '/' && _peek(self, &nc, err) && nc == '/') || (c == '-' && _peek(self, &nc, err) && nc == '-') || c == '#') {
 		if (c != '#') _consume(self);
 		while (_peek(self, &c, err) && !(c == '\n' || c == EOF)) _consume(self);
@@ -325,17 +363,47 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		*result = _maketoken(T_BINARY, line, col);
 		if (!_tokenize_binary(self, *result, err)) return false;
 
-		return _read(self, &c, err);
+		REQUIRE(_read(self, &c, err));
+		if (c == ']') {
+			return true;
+		} else {
+			_set_error(err,
+				self,
+				GSDL_TOKENIZER_ERROR_MISSING_DELIMITER,
+				"Missing ']'",
+			);
+			return false;
+		}
 	} else if (c == '"') {
 		*result = _maketoken(T_STRING, line, col);
 		if (!_tokenize_string(self, *result, err)) return false;
 
-		return _read(self, &c, err);
+		REQUIRE(_read(self, &c, err));
+		if (c == '"') {
+			return true;
+		} else {
+			_set_error(err,
+				self,
+				GSDL_TOKENIZER_ERROR_MISSING_DELIMITER,
+				"Missing '\"'",
+			);
+			return false;
+		}
 	} else if (c == '`') {
 		*result = _maketoken(T_STRING, line, col);
 		if (!_tokenize_backquote_string(self, *result, err)) return false;
 
-		return _read(self, &c, err);
+		REQUIRE(_read(self, &c, err));
+		if (c == '`') {
+			return true;
+		} else {
+			_set_error(err,
+				self,
+				GSDL_TOKENIZER_ERROR_MISSING_DELIMITER,
+				"Missing '`'",
+			);
+			return false;
+		}
 	} else if (c == '\'') {
 		*result = _maketoken(T_CHAR, line, col);
 		(*result)->val = g_malloc0(4);
@@ -357,7 +425,17 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 
 		g_unichar_to_utf8(c, (*result)->val); 
 
-		return _read(self, &c, err);
+		REQUIRE(_read(self, &c, err));
+		if (c == '\'') {
+			return true;
+		} else {
+			_set_error(err,
+				self,
+				GSDL_TOKENIZER_ERROR_MISSING_DELIMITER,
+				"Missing \"'\"",
+			);
+			return false;
+		}
 	} else if (c == '\\' && _peek(self, &nc, err) && (nc == '\r' || nc == '\n')) {
 		_consume(self);
 
@@ -368,7 +446,11 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		// Do nothing
 		goto retry;
 	} else {
-		fprintf(stderr, "Invalid character '%s'(%d) at line %d, col %d", g_ucs4_to_utf8(&c, 1, NULL, NULL, NULL), c, line, col);
+		_set_error(err,
+			self,
+			GSDL_TOKENIZER_ERROR_UNEXPECTED_CHAR,
+		   	g_strdup_printf("Invalid character '%s'(%d)", g_ucs4_to_utf8(&c, 1, NULL, NULL, NULL));
+		);
 		return false;
 	}
 }
