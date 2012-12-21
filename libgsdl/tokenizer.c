@@ -59,6 +59,25 @@ GQuark gsdl_tokenizer_error_quark() {
 	return g_quark_from_static_string("gsdl-tokenizer-error-quark");
 }
 
+void gsdl_tokenizer_free() {
+	g_free(self->filename);
+
+	if (self->channel) {
+		g_io_channel_shutdown(self->channel, FALSE, NULL);
+		g_io_channel_unref(self->channel);
+	}
+
+	if (self->stringbuf) g_free(self->stringbuf);
+
+	g_free(self);
+}
+
+extern void gsdl_token_free(GSDLToken *token) {
+	if (token->val) g_free(token->val);
+
+	g_slice_free(GSDLToken, token);
+}
+
 //> Internal Functions
 static bool _read(GSDLTokenizer *self, gunichar *result, GError **err) {
 	if (self->peek_avail) {
@@ -85,6 +104,7 @@ static bool _read(GSDLTokenizer *self, gunichar *result, GError **err) {
 				self->peek_avail = false;
 				*result = EOF;
 				g_io_channel_shutdown(self->channel, FALSE, NULL);
+				g_io_channel_unref(self->channel);
 				self->channel = NULL;
 				return true;
 			case G_IO_STATUS_AGAIN:
@@ -124,6 +144,7 @@ static bool _peek(GSDLTokenizer *self, gunichar *result, GError **err) {
 				case G_IO_STATUS_EOF:
 					self->peeked = EOF;
 					g_io_channel_shutdown(self->channel, FALSE, NULL);
+					g_io_channel_unref(self->channel);
 					self->channel = NULL;
 				case G_IO_STATUS_AGAIN:
 				case G_IO_STATUS_NORMAL:
@@ -261,7 +282,7 @@ static bool _tokenize_binary(GSDLTokenizer *self, GSDLToken *result, GError **er
 	FAIL_IF_ERR();
 	output[i] = '\0';
 
-	return false);
+	return true;
 }
 
 static bool _tokenize_string(GSDLTokenizer *self, GSDLToken *result, GError **err) {

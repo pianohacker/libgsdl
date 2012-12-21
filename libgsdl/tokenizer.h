@@ -48,4 +48,7 @@ extern GSDLTokenizer* gsdl_tokenizer_new_from_string(const char *str, GError **e
 
 extern bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **token, GError **err);
 
+extern void gsdl_tokenizer_free(GSDLTokenizer *self);
+extern void gsdl_token_free(GSDLToken *token);
+
 #endif

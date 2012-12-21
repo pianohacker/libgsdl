@@ -81,6 +81,13 @@ static bool _peek(GSDLParserContext *self, GSDLToken **token) {
 	}
 }
 
+static bool _consume(GSDLParserContext *self) {
+	g_assert(self->peek_token != NULL);
+
+	self->peek_token = NULL;
+}
+
+//> Parser Functions
 static bool _parse(GSDLParserContext *self) {
 	GSDLToken *token;
 	for (;;) {
@@ -98,7 +105,9 @@ static bool _parse_tag(GSDLParserContext *self) {
 	GSDLToken *first;
 	char *name = "contents";
 
-	REQUIRE(_read(self, &first));
+	REQUIRE(_peek(self, &first));
+
+
 }
 
 bool gsdl_parser_context_parse_file(GSDLParserContext *self, const char *filename) {
