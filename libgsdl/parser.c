@@ -13,6 +13,7 @@ struct _GSDLParserContext {
 	GSList *data_stack;
 };
 
+#define EXPECT(...) if (!_expect(token, __VA_ARGS___)) return false;
 #define MAYBE_CALLBACK(callback, ...) if (callback) callback(__VA_ARGS___)
 #define REQUIRE(expr) if (!expr) return false;
 
@@ -88,7 +89,7 @@ static bool _consume(GSDLParserContext *self) {
 	self->peek_token = NULL;
 }
 
-static void _error(GSDLTokenizer *self, GSDLToken *token, GSDLSyntaxError err_type, char *msg) {
+static void _error(GSDLParserContext *self, GSDLToken *token, GSDLSyntaxError err_type, char *msg) {
 	GError *err;
 	g_set_error(&err,
 		GSDL_SYNTAX_ERROR,
@@ -103,19 +104,6 @@ static void _error(GSDLTokenizer *self, GSDLToken *token, GSDLSyntaxError err_ty
 }
 
 //> Parser Functions
-static bool _parse(GSDLParserContext *self) {
-	GSDLToken *token;
-	for (;;) {
-		REQUIRE(_peek(self, &token));
-
-		if (token->type == T_EOF) {
-			break;
-		} else {
-			_parse_tag(self);
-		}
-	}
-}
-
 static bool _token_is_value(GSDLToken *token) {
 	switch (token->type) {
 		case T_NUMBER:
@@ -128,6 +116,53 @@ static bool _token_is_value(GSDLToken *token) {
 		case T_BINARY:
 			return true;
 		default:
+			return false;
+	}
+}
+
+static bool _parse_value(GSDLParserContext *self, GValue *value) {
+	GSDLToken *token;
+	REQUIRE(_read(self, &token));
+
+	switch (token->type) {
+		case T_LONGINTEGER:
+			char *end;
+			g_value_init(value, G_TYPE_LONG);
+			g_value_set_long(value, strtol(token->val, &end, 10));
+
+			if (*end) {
+				_error(self, token, GSDL_SYNTAX_ERROR_BAD_LITERAL, "Long integer out of range");
+
+				return false;
+			}
+
+			g_free(token);
+			return true;
+
+		case T_BOOLEAN;
+			g_value_init(value, G_TYPE_BOOLEAN);
+
+			if (strcmp(token->val, "true") == 0 || strcmp(token->val, "on") == 0) {
+				g_value_set_boolean(value, TRUE);
+			} else if (strcmp(token->val, "false") == 0 || strcmp(token->val, "off") == 0) {
+				g_value_set_boolean(value, FALSE);
+			}
+
+			g_free(token);
+			return true;
+
+		case T_NULL;
+			return true;
+
+		case T_STRING:
+			g_value_init(value, G_TYPE_STRING);
+			g_value_set_string(value, token->val);
+
+			g_free(token);
+			return true;
+
+		default:
+			g_fail_if_reached();
 			return false;
 	}
 }
@@ -166,11 +201,85 @@ static bool _parse_tag(GSDLParserContext *self) {
 	bool peek_success = true;
 
 	while ((_peek(self, &token) || (peek_success = false)) && _token_is_value(token)) {
-		GValue *value = g_slice_new(GValue);
-		REQUIRE(_parse_value(self, value));
+		GValue value = G_VALUE_INIT;
+		REQUIRE(_parse_value(self, &value));
 		g_array_append_val(values, value);
 	}
 	REQUIRE(peek_success);
+
+	peek_success = false;
+
+	while ((_peek(self, &token) || (peek_success = false)) && token->type == T_IDENTIFIER) {
+		_consume(self);
+		g_array_append_val(attr_names, g_strdup(token->val));
+		gsdl_token_free(token);
+
+		GValue value = G_VALUE_INIT;
+		REQUIRE(_parse_value(self, &value));
+		g_array_append_val(attr_values, value);
+	}
+	REQUIRE(peek_success);
+
+	REQUIRE(_read(self, &token));
+
+	GError *err = NULL;
+	MAYBE_CALLBACK(self->parser->start_tag,
+		self,
+		name,
+		&values->data,
+		attr_names->data,
+		&attr_values->data,
+		self->user_data,
+		&err,
+	);
+	if (err) {
+		MAYBE_CALLBACK(self->parser->error, self, err, self->user_data);
+		return false;
+	}
+
+	if (token->type == '{') {
+		gsdl_token_free(token);
+
+		while ((_peek(self, &token) || (peek_success = false)) && token->type != '}') {
+			_parse_tag(self);
+		}
+
+		EXPECT('}');
+		_consume(self);
+		REQUIRE(_read(self, &token));
+	}
+
+	GError *err = NULL;
+	MAYBE_CALLBACK(self->parser->end_tag,
+		self,
+		name,
+		self->user_data,
+		&err,
+	);
+	if (err) {
+		MAYBE_CALLBACK(self->parser->error, self, err, self->user_data);
+		return false;
+	}
+
+	EXPECT('\n', T_EOF);
+	gsdl_token_free(token);
+
+	return true;
+}
+
+static bool _parse(GSDLParserContext *self) {
+	_types_init();
+
+	GSDLToken *token;
+	for (;;) {
+		REQUIRE(_peek(self, &token));
+
+		if (token->type == T_EOF) {
+			break;
+		} else {
+			_parse_tag(self);
+		}
+	}
 }
 
 bool gsdl_parser_context_parse_file(GSDLParserContext *self, const char *filename) {
