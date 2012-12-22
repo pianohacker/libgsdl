@@ -184,7 +184,7 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 				return false;
 			}
 
-			g_free(token);
+			gsdl_token_free(token);
 			return true;
 
 		case T_BOOLEAN:
@@ -196,17 +196,19 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 				g_value_set_boolean(value, FALSE);
 			}
 
-			g_free(token);
+			gsdl_token_free(token);
 			return true;
 
 		case T_NULL:
+			g_value_init(value, G_TYPE_POINTER);
+			g_value_set_pointer(value, NULL);
 			return true;
 
 		case T_STRING:
 			g_value_init(value, G_TYPE_STRING);
 			g_value_set_string(value, token->val);
 
-			g_free(token);
+			gsdl_token_free(token);
 			return true;
 
 		default:
@@ -218,10 +220,10 @@ static bool _parse_tag(GSDLParserContext *self) {
 	GSDLToken *first, *token;
 	char *name = g_strdup("contents");
 
-	GArray *values = g_array_new(TRUE, FALSE, sizeof(GValue));
+	GArray *values = g_array_new(TRUE, FALSE, sizeof(GValue*));
 
 	GArray *attr_names = g_array_new(TRUE, FALSE, sizeof(gchar*));
-	GArray *attr_values = g_array_new(TRUE, FALSE, sizeof(GValue));
+	GArray *attr_values = g_array_new(TRUE, FALSE, sizeof(GValue*));
 
 	REQUIRE(_peek(self, &first));
 
@@ -253,8 +255,8 @@ static bool _parse_tag(GSDLParserContext *self) {
 	bool peek_success = true;
 
 	while ((_peek(self, &token) || (peek_success = false)) && _token_is_value(token)) {
-		GValue value = G_VALUE_INIT;
-		REQUIRE(_parse_value(self, &value));
+		GValue *value = g_new0(GValue, 1);
+		REQUIRE(_parse_value(self, value));
 		g_array_append_val(values, value);
 	}
 	REQUIRE(peek_success);
@@ -265,8 +267,8 @@ static bool _parse_tag(GSDLParserContext *self) {
 		g_array_append_val(attr_names, contents);
 		gsdl_token_free(token);
 
-		GValue value = G_VALUE_INIT;
-		REQUIRE(_parse_value(self, &value));
+		GValue *value = g_new0(GValue, 1);
+		REQUIRE(_parse_value(self, value));
 		g_array_append_val(attr_values, value);
 	}
 	REQUIRE(peek_success);
@@ -275,9 +277,9 @@ static bool _parse_tag(GSDLParserContext *self) {
 	MAYBE_CALLBACK(self->parser->start_tag,
 		self,
 		name,
-		(GValue**) &values->data,
+		(GValue**) values->data,
 		(gchar**) attr_names->data,
-		(GValue**) &attr_values->data,
+		(GValue**) attr_values->data,
 		self->user_data,
 		&err
 	);
