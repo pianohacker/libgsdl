@@ -405,7 +405,7 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		while (_peek(self, &c, err) && !(c == '\n' || c == EOF)) _consume(self);
 
 		goto retry;
-	} else if (c < 256 && strchr("-:./{}=\n", (char) c)) {
+	} else if (c < 256 && strchr("-:;./{}=\n", (char) c)) {
 		*result = _maketoken(c, line, col);
 		return true;
 	} else if (c < 256 && isdigit((char) c)) {

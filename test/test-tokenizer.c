@@ -131,7 +131,7 @@ void test_tokenizer_file_full() {
 	g_io_channel_write_unichar(channel, 0x2032, NULL);
 	g_io_channel_write_chars(channel, "s\" '", -1, NULL, NULL);
 	g_io_channel_write_unichar(channel, 0x2013, NULL);
-	g_io_channel_write_chars(channel, "' 123 45L 56.79f 1.2D\\\n3.4BD true\n2012/12/19 0d:00:01:03.123 [abcs21+] null", -1, NULL, NULL);
+	g_io_channel_write_chars(channel, "' 123 45L; 56.79f 1.2D\\\n3.4BD true\n2012/12/19 0d:00:01:03.123 [abcs21+] null", -1, NULL, NULL);
 	g_io_channel_shutdown(channel, true, NULL);
 
 	GError *error = NULL;
@@ -146,6 +146,7 @@ void test_tokenizer_file_full() {
 	ASSERT_TOKEN_VAL(T_CHAR, "\xe2\x80\x93");
 	ASSERT_TOKEN_VAL(T_NUMBER, "123");
 	ASSERT_TOKEN_VAL(T_LONGINTEGER, "45");
+	ASSERT_TOKEN(';');
 	ASSERT_TOKEN_VAL(T_NUMBER, "56");
 	ASSERT_TOKEN('.');
 	ASSERT_TOKEN_VAL(T_FLOAT_END, "79");
