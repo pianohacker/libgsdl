@@ -17,6 +17,17 @@ void start_tag_appender(
 
 	g_string_append(repr, name);
 
+	for (; *values; values++) {
+		g_string_append_c(repr, ',');
+		g_string_append(repr, G_VALUE_TYPE_NAME(*values));
+	}
+
+	for (; *attr_names; attr_names++, attr_values++) {
+		g_string_append_c(repr, ',');
+		g_string_append(repr, *attr_names);
+		g_string_append(repr, G_VALUE_TYPE_NAME(*attr_values));
+	}
+
 	g_string_append_c(repr, '\n');
 
 	g_string_append(result, repr->str);
@@ -101,6 +112,7 @@ void test_parser_identifier_sequence() {
 }
 
 int main(int argc, char **argv) {
+	g_type_init();
 	g_test_init(&argc, &argv, NULL);
 
 	g_test_add_func("/parser/identifier_only", test_parser_identifier_only);
