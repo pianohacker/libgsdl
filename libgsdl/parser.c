@@ -244,6 +244,10 @@ static bool _parse_tag(GSDLParserContext *self) {
 		g_free(name);
 		name = g_strdup(first->val);
 		gsdl_token_free(first);
+	} else {
+		token = first;
+
+		EXPECT(T_IDENTIFIER, T_NUMBER, T_LONGINTEGER, T_D_NUMBER, T_BOOLEAN, T_NULL, T_STRING, T_CHAR, T_BINARY);
 	}
 
 	bool peek_success = true;
@@ -267,8 +271,6 @@ static bool _parse_tag(GSDLParserContext *self) {
 	}
 	REQUIRE(peek_success);
 
-	REQUIRE(_peek(self, &token));
-
 	GError *err = NULL;
 	MAYBE_CALLBACK(self->parser->start_tag,
 		self,
@@ -284,11 +286,24 @@ static bool _parse_tag(GSDLParserContext *self) {
 		return false;
 	}
 
+	REQUIRE(_peek(self, &token));
+
 	if (token->type == '{') {
+		_consume(self);
 		gsdl_token_free(token);
 
 		while ((_peek(self, &token) || (peek_success = false)) && token->type != '}') {
-			_parse_tag(self);
+			REQUIRE(_parse_tag(self));
+			REQUIRE(_read(self, &token));
+			EXPECT('\n', '}', T_EOF);
+
+			if (token->type == T_EOF) {
+				break;
+			} else if (token->type == '\n') {
+				_consume(self);
+			}
+
+			gsdl_token_free(token);
 		}
 
 		EXPECT('}');
@@ -324,6 +339,12 @@ static bool _parse(GSDLParserContext *self) {
 			continue;
 		} else {
 			REQUIRE(_parse_tag(self));
+			REQUIRE(_read(self, &token));
+			EXPECT('\n', T_EOF);
+
+			if (token->type == T_EOF) break;
+
+			gsdl_token_free(token);
 		}
 	}
 

@@ -93,7 +93,7 @@ void gsdl_tokenizer_free(GSDLTokenizer *self) {
 extern char* gsdl_token_type_name(GSDLTokenType token_type) {
 	static char buffer[4] = "' '";
 
-	if (0 <= token_type || token_type < 256) {
+	if (0 <= token_type && token_type < 256) {
 		buffer[1] = token_type;
 		return buffer;
 	} else {
@@ -190,7 +190,8 @@ static bool _peek(GSDLTokenizer *self, gunichar *result, GError **err) {
 static void _consume(GSDLTokenizer *self) {
 	g_assert(self->peek_avail);
 
-	self->peek_avail = false;
+	gunichar result;
+	_read(self, &result, NULL);
 }
 
 static GSDLToken* _maketoken(GSDLTokenType type, int line, int col) {

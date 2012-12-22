@@ -29,6 +29,15 @@ void end_tag_appender(
 		gpointer user_data,
 		GError **err
 	) {
+
+	GString *result = (GString*) user_data;
+	GString *repr = g_string_new("END: ");
+
+	g_string_append(repr, name);
+
+	g_string_append_c(repr, '\n');
+
+	g_string_append(result, repr->str);
 }
 
 
@@ -57,7 +66,17 @@ void test_parser_identifier_only() {
 
 	g_assert(context != NULL);
 	bool success = gsdl_parser_context_parse_string(context, "tag");
-	g_assert_cmpstr(result->str, ==, "START: tag\n");
+	g_assert_cmpstr(result->str, ==, "START: tag\nEND: tag\n");
+	g_assert(success);
+}
+
+void test_parser_identifier_nested() {
+	GString *result = g_string_new("");
+	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);
+
+	g_assert(context != NULL);
+	bool success = gsdl_parser_context_parse_string(context, "outer { inner }");
+	g_assert_cmpstr(result->str, ==, "START: outer\nSTART: inner\nEND: inner\nEND: outer\n");
 	g_assert(success);
 }
 
@@ -65,6 +84,7 @@ int main(int argc, char **argv) {
 	g_test_init(&argc, &argv, NULL);
 
 	g_test_add_func("/parser/identifier_only", test_parser_identifier_only);
+	g_test_add_func("/parser/identifier_nested", test_parser_identifier_nested);
 
 	return g_test_run();
 }
