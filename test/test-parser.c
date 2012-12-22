@@ -50,6 +50,7 @@ GSDLParser appender_parser = {
 	error_appender
 };
 
+//> Actual Tests
 void test_parser_identifier_only() {
 	GString *result = g_string_new("");
 	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);

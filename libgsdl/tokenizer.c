@@ -245,7 +245,9 @@ static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 
 	output[i] = '\0';
 
-	if (strcasecmp("bd", alnum_part) == 0) {
+	if (*alnum_part == '\0') {
+		// Just a T_NUMBER
+	} else if (strcasecmp("bd", alnum_part) == 0) {
 		result->type = T_DECIMAL_END;
 	} else if (strcasecmp("d", alnum_part) == 0) {
 		result->type = T_D_NUMBER;
@@ -254,7 +256,7 @@ static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 	} else if (strcasecmp("l", alnum_part) == 0) {
 		result->type = T_LONGINTEGER;
 	} else {
-		_set_error(err, self, GSDL_SYNTAX_ERROR_UNEXPECTED_CHAR, g_strdup_printf("Unexpected number suffix: %s", alnum_part));
+		_set_error(err, self, GSDL_SYNTAX_ERROR_UNEXPECTED_CHAR, g_strdup_printf("Unexpected number suffix: \"%s\"", alnum_part));
 		return false;
 	}
 

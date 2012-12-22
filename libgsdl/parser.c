@@ -62,7 +62,7 @@ static bool _read(GSDLParserContext *self, GSDLToken **token) {
 
 		return true;
 	} else {
-		GError *error;
+		GError *error = NULL;
 
 		if (!gsdl_tokenizer_next(self->tokenizer, token, &error)) {
 			MAYBE_CALLBACK(self->parser->error, self, error, self->user_data);
@@ -79,7 +79,7 @@ static bool _peek(GSDLParserContext *self, GSDLToken **token) {
 
 		return true;
 	} else {
-		GError *error;
+		GError *error = NULL;
 
 		if (!gsdl_tokenizer_next(self->tokenizer, &(self->peek_token), &error)) {
 			MAYBE_CALLBACK(self->parser->error, self, error, self->user_data);
@@ -98,7 +98,7 @@ static void _consume(GSDLParserContext *self) {
 }
 
 static void _error(GSDLParserContext *self, GSDLToken *token, GSDLSyntaxError err_type, char *msg) {
-	GError *err;
+	GError *err = NULL;
 	g_set_error(&err,
 		GSDL_SYNTAX_ERROR,
 		err_type,
@@ -255,8 +255,6 @@ static bool _parse_tag(GSDLParserContext *self) {
 	}
 	REQUIRE(peek_success);
 
-	peek_success = false;
-
 	while ((_peek(self, &token) || (peek_success = false)) && token->type == T_IDENTIFIER) {
 		_consume(self);
 		char *contents = g_strdup(token->val);
@@ -269,7 +267,7 @@ static bool _parse_tag(GSDLParserContext *self) {
 	}
 	REQUIRE(peek_success);
 
-	REQUIRE(_read(self, &token));
+	REQUIRE(_peek(self, &token));
 
 	GError *err = NULL;
 	MAYBE_CALLBACK(self->parser->start_tag,
@@ -295,7 +293,6 @@ static bool _parse_tag(GSDLParserContext *self) {
 
 		EXPECT('}');
 		_consume(self);
-		REQUIRE(_read(self, &token));
 	}
 
 	err = NULL;
@@ -310,9 +307,6 @@ static bool _parse_tag(GSDLParserContext *self) {
 		return false;
 	}
 
-	EXPECT('\n', T_EOF);
-	gsdl_token_free(token);
-
 	return true;
 }
 
@@ -325,6 +319,9 @@ static bool _parse(GSDLParserContext *self) {
 
 		if (token->type == T_EOF) {
 			break;
+		} else if (token->type == '\n') {
+			_consume(self);
+			continue;
 		} else {
 			REQUIRE(_parse_tag(self));
 		}
@@ -334,7 +331,7 @@ static bool _parse(GSDLParserContext *self) {
 }
 
 bool gsdl_parser_context_parse_file(GSDLParserContext *self, const char *filename) {
-	GError *err;
+	GError *err = NULL;
 	self->tokenizer = gsdl_tokenizer_new(filename, &err);
 
 	if (!self->tokenizer) {
@@ -346,7 +343,7 @@ bool gsdl_parser_context_parse_file(GSDLParserContext *self, const char *filenam
 }
 
 bool gsdl_parser_context_parse_string(GSDLParserContext *self, const char *str) {
-	GError *err;
+	GError *err = NULL;
 	self->tokenizer = gsdl_tokenizer_new_from_string(str, &err);
 
 	if (!self->tokenizer) {

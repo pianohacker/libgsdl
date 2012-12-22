@@ -1,8 +1,8 @@
 #include <glib.h>
 #include <tokenizer.h>
 
-#define ASSERT_TOKEN(t) g_assert(gsdl_tokenizer_next(tokenizer, &token, &error)); g_assert_no_error(error); g_assert_cmpint(token->type, ==, t)
-#define ASSERT_TOKEN_VAL(t, v) g_assert(gsdl_tokenizer_next(tokenizer, &token, &error)); g_assert_no_error(error); g_assert_cmpint(token->type, ==, t); g_assert_cmpstr(token->val, ==, v)
+#define ASSERT_TOKEN(t) do { bool success = gsdl_tokenizer_next(tokenizer, &token, &error); g_assert_no_error(error); g_assert(success); g_assert_cmpint(token->type, ==, t); } while(0)
+#define ASSERT_TOKEN_VAL(t, v) do { bool success = gsdl_tokenizer_next(tokenizer, &token, &error); g_assert_no_error(error); g_assert(success); g_assert_cmpint(token->type, ==, t); g_assert_cmpstr(token->val, ==, v); } while(0)
 
 void test_tokenizer_string_simple() {
 	GError *error = NULL;
