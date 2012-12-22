@@ -294,20 +294,18 @@ static bool _parse_tag(GSDLParserContext *self) {
 
 		while ((_peek(self, &token) || (peek_success = false)) && token->type != '}') {
 			REQUIRE(_parse_tag(self));
-			REQUIRE(_read(self, &token));
-			EXPECT('\n', '}', T_EOF);
+			REQUIRE(_peek(self, &token));
+			EXPECT('\n', '}');
 
-			if (token->type == T_EOF) {
-				break;
-			} else if (token->type == '\n') {
+			if (token->type == '\n') {
 				_consume(self);
+				gsdl_token_free(token);
 			}
-
-			gsdl_token_free(token);
 		}
 
 		EXPECT('}');
 		_consume(self);
+		gsdl_token_free(token);
 	}
 
 	err = NULL;
