@@ -202,6 +202,8 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 		case T_NULL:
 			g_value_init(value, G_TYPE_POINTER);
 			g_value_set_pointer(value, NULL);
+
+			gsdl_token_free(token);
 			return true;
 
 		case T_STRING:
