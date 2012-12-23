@@ -14,6 +14,7 @@ typedef enum {
 	T_FLOAT_END,
 	T_DOUBLE_END,
 	T_DECIMAL_END,
+	T_DATE_PART,
 	T_TIME_PART,
 	T_DAYS,
 	T_BOOLEAN,

@@ -255,6 +255,10 @@ static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 			_consume(self);
 
 			result->type = T_TIME_PART;
+		} else if (c == '/') {
+			_consume(self);
+
+			result->type = T_DATE_PART;
 		}
 	} else if (strcasecmp("bd", suffix) == 0) {
 		result->type = T_DECIMAL_END;

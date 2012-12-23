@@ -37,8 +37,7 @@ void test_tokenizer_string_comments() {
 	g_assert_no_error(error);
 	g_assert(tokenizer != NULL);
 
-	ASSERT_TOKEN_VAL(T_NUMBER, "2");
-	ASSERT_TOKEN('/');
+	ASSERT_TOKEN_VAL(T_DATE_PART, "2");
 	ASSERT_TOKEN_VAL(T_NUMBER, "3");
 	ASSERT_TOKEN('\n');
 	ASSERT_TOKEN_VAL(T_IDENTIFIER, "tag");
@@ -158,10 +157,8 @@ void test_tokenizer_file_full() {
 	ASSERT_TOKEN_VAL(T_DECIMAL_END, "4");
 	ASSERT_TOKEN_VAL(T_BOOLEAN, "true");
 	ASSERT_TOKEN('\n');
-	ASSERT_TOKEN_VAL(T_NUMBER, "2012");
-	ASSERT_TOKEN('/');
-	ASSERT_TOKEN_VAL(T_NUMBER, "12");
-	ASSERT_TOKEN('/');
+	ASSERT_TOKEN_VAL(T_DATE_PART, "2012");
+	ASSERT_TOKEN_VAL(T_DATE_PART, "12");
 	ASSERT_TOKEN_VAL(T_NUMBER, "19");
 	ASSERT_TOKEN_VAL(T_DAYS, "0");
 	ASSERT_TOKEN_VAL(T_TIME_PART, "00");
