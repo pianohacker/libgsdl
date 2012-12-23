@@ -7,6 +7,7 @@
 #include "parser.h"
 #include "syntax.h"
 #include "tokenizer.h"
+#include "types.h"
 
 struct _GSDLParserContext {
 	GSDLTokenizer *tokenizer;
@@ -170,7 +171,7 @@ static bool _token_is_value(GSDLToken *token) {
 
 static bool _parse_value(GSDLParserContext *self, GValue *value) {
 	char *end;
-	GSDLToken *token, *next, **parts;
+	GSDLToken *token, *next, *parts[8];
 	REQUIRE(_read(self, &token));
 
 	switch (token->type) {
@@ -180,7 +181,52 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 			if (next->type == '.') {
 				_consume(self);
 				gsdl_token_free(next);
-				// TODO: handle integers
+				parts[0] = token;
+
+				REQUIRE(_read(self, &token));
+				EXPECT(T_NUMBER, T_FLOAT_END, T_DECIMAL_END, T_D_NUMBER);
+
+				char *total = g_strdup_printf("%s.%s", parts[0]->val, token->val);
+				gsdl_token_free(parts[0]);
+
+				switch (token->type) {
+					case T_NUMBER:
+					case T_D_NUMBER:
+						g_value_init(value, G_TYPE_DOUBLE);
+
+						g_value_set_double(value, strtod(total, &end));
+
+						if (*end) {
+							_error(self, token, GSDL_SYNTAX_ERROR_BAD_LITERAL, "Double out of range");
+
+							return false;
+						}
+
+						break;
+
+					case T_FLOAT_END:
+						g_value_init(value, G_TYPE_FLOAT);
+
+						g_value_set_float(value, strtof(total, &end));
+
+						if (*end) {
+							_error(self, token, GSDL_SYNTAX_ERROR_BAD_LITERAL, "Float out of range");
+
+							return false;
+						}
+
+						break;
+					case T_DECIMAL_END:
+						g_value_init(value, GSDL_TYPE_DECIMAL);
+
+						gsdl_gvalue_set_decimal(value, total);
+
+						break;
+					default:
+						g_return_val_if_reached(false);
+				}
+
+				g_free(total);
 			} else if (next->type == '/') {
 				_consume(self);
 				gsdl_token_free(next);
@@ -346,8 +392,10 @@ static bool _parse_tag(GSDLParserContext *self) {
 	return true;
 }
 
+extern void _gsdl_types_init();
+
 static bool _parse(GSDLParserContext *self) {
-	/*_types_init();*/
+	_gsdl_types_init();
 
 	GSDLToken *token;
 	for (;;) {

@@ -9,6 +9,7 @@ add_library(gsdl SHARED
 	libgsdl/parser.c
 	libgsdl/syntax.c
 	libgsdl/tokenizer.c
+	libgsdl/types.c
 )
 include_directories(${GLIB_INCLUDE_DIRS})
 target_link_libraries(gsdl ${GLIB_LIBRARIES})

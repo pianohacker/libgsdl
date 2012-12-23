@@ -118,8 +118,8 @@ void test_parser_value_numbers() {
 	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);
 
 	g_assert(context != NULL);
-	bool success = gsdl_parser_context_parse_string(context, "tag 58 2L");
-	g_assert_cmpstr(result->str, ==, "(tag,gint:58,gint64:2\ntag)\n");
+	bool success = gsdl_parser_context_parse_string(context, "tag 58 2L 69.2 43.2D 25.3f 53.25BD");
+	g_assert_cmpstr(result->str, ==, "(tag,gint:58,gint64:2,gdouble:69.200000,gdouble:43.200000,gfloat:25.299999,gsdldecimal:53.25\ntag)\n");
 	g_assert(success);
 }
 
