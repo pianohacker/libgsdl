@@ -170,13 +170,35 @@ static bool _token_is_value(GSDLToken *token) {
 
 static bool _parse_value(GSDLParserContext *self, GValue *value) {
 	char *end;
-	GSDLToken *token;
+	GSDLToken *token, *next, **parts;
 	REQUIRE(_read(self, &token));
 
 	switch (token->type) {
+		case T_NUMBER:
+			REQUIRE(_peek(self, &next));
+
+			if (next->type == '.') {
+				_consume(self);
+				gsdl_token_free(next);
+				// TODO: handle integers
+			} else if (next->type == '/') {
+				_consume(self);
+				gsdl_token_free(next);
+				// TODO: handle times
+			} else if (next->type == ':') {
+				_consume(self);
+				gsdl_token_free(next);
+				// TODO: handle times
+			} else {
+				g_value_init(value, G_TYPE_INT);
+				g_value_set_int(value, strtol(token->val, &end, 10));
+			}
+
+			break;
+
 		case T_LONGINTEGER:
-			g_value_init(value, G_TYPE_LONG);
-			g_value_set_long(value, strtol(token->val, &end, 10));
+			g_value_init(value, G_TYPE_INT64);
+			g_value_set_int64(value, strtoll(token->val, &end, 10));
 
 			if (*end) {
 				_error(self, token, GSDL_SYNTAX_ERROR_BAD_LITERAL, "Long integer out of range");
@@ -184,8 +206,7 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 				return false;
 			}
 
-			gsdl_token_free(token);
-			return true;
+			break;
 
 		case T_BOOLEAN:
 			g_value_init(value, G_TYPE_BOOLEAN);
@@ -196,26 +217,24 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 				g_value_set_boolean(value, FALSE);
 			}
 
-			gsdl_token_free(token);
-			return true;
+			break;
 
 		case T_NULL:
 			g_value_init(value, G_TYPE_POINTER);
 			g_value_set_pointer(value, NULL);
-
-			gsdl_token_free(token);
-			return true;
+			break;
 
 		case T_STRING:
 			g_value_init(value, G_TYPE_STRING);
 			g_value_set_string(value, token->val);
-
-			gsdl_token_free(token);
-			return true;
+			break;
 
 		default:
 			g_return_val_if_reached(false);
 	}
+
+	gsdl_token_free(token);
+	return true;
 }
 
 static bool _parse_tag(GSDLParserContext *self) {
