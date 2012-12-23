@@ -233,7 +233,7 @@ static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 
 	FAIL_IF_ERR();
 
-	char *alnum_part = output + i;
+	char *suffix = output + i;
 
 	while (_peek(self, &c, err) && c < 256 && (isalpha(c) || isdigit(c))) {
 		GROW_IF_NEEDED(output = result->val, i + 1, length);
@@ -246,22 +246,34 @@ static bool _tokenize_number(GSDLTokenizer *self, GSDLToken *result, gunichar c,
 
 	output[i] = '\0';
 
-	if (*alnum_part == '\0') {
+	if (*suffix == '\0') {
 		// Just a T_NUMBER
-	} else if (strcasecmp("bd", alnum_part) == 0) {
+
+		if (c == ':') {
+			_consume(self);
+
+			result->type = T_TIME_PART;
+		}
+	} else if (strcasecmp("bd", suffix) == 0) {
 		result->type = T_DECIMAL_END;
-	} else if (strcasecmp("d", alnum_part) == 0) {
-		result->type = T_D_NUMBER;
-	} else if (strcasecmp("f", alnum_part) == 0) {
+	} else if (strcasecmp("d", suffix) == 0) {
+		if (c == ':') {
+			_consume(self);
+
+			result->type = T_DAYS;
+		} else {
+			result->type = T_DOUBLE_END;
+		}
+	} else if (strcasecmp("f", suffix) == 0) {
 		result->type = T_FLOAT_END;
-	} else if (strcasecmp("l", alnum_part) == 0) {
+	} else if (strcasecmp("l", suffix) == 0) {
 		result->type = T_LONGINTEGER;
 	} else {
-		_set_error(err, self, GSDL_SYNTAX_ERROR_UNEXPECTED_CHAR, g_strdup_printf("Unexpected number suffix: \"%s\"", alnum_part));
+		_set_error(err, self, GSDL_SYNTAX_ERROR_UNEXPECTED_CHAR, g_strdup_printf("Unexpected number suffix: \"%s\"", suffix));
 		return false;
 	}
 
-	*alnum_part = '\0';
+	*suffix = '\0';
 
 	return true;
 }

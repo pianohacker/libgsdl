@@ -157,7 +157,7 @@ static bool _token_is_value(GSDLToken *token) {
 	switch (token->type) {
 		case T_NUMBER:
 		case T_LONGINTEGER:
-		case T_D_NUMBER:
+		case T_DAYS:
 		case T_BOOLEAN:
 		case T_NULL:
 		case T_STRING:
@@ -184,14 +184,14 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 				parts[0] = token;
 
 				REQUIRE(_read(self, &token));
-				EXPECT(T_NUMBER, T_FLOAT_END, T_DECIMAL_END, T_D_NUMBER);
+				EXPECT(T_NUMBER, T_FLOAT_END, T_DECIMAL_END, T_DAYS);
 
 				char *total = g_strdup_printf("%s.%s", parts[0]->val, token->val);
 				gsdl_token_free(parts[0]);
 
 				switch (token->type) {
 					case T_NUMBER:
-					case T_D_NUMBER:
+					case T_DOUBLE_END:
 						g_value_init(value, G_TYPE_DOUBLE);
 
 						g_value_set_double(value, strtod(total, &end));
@@ -316,7 +316,7 @@ static bool _parse_tag(GSDLParserContext *self) {
 	} else {
 		token = first;
 
-		EXPECT(T_IDENTIFIER, T_NUMBER, T_LONGINTEGER, T_D_NUMBER, T_BOOLEAN, T_NULL, T_STRING, T_CHAR, T_BINARY);
+		EXPECT(T_IDENTIFIER, T_NUMBER, T_LONGINTEGER, T_DAYS, T_BOOLEAN, T_NULL, T_STRING, T_CHAR, T_BINARY);
 	}
 
 	bool peek_success = true;
