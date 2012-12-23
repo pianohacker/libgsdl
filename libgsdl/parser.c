@@ -184,7 +184,7 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 				parts[0] = token;
 
 				REQUIRE(_read(self, &token));
-				EXPECT(T_NUMBER, T_FLOAT_END, T_DECIMAL_END, T_DAYS);
+				EXPECT(T_NUMBER, T_FLOAT_END, T_DOUBLE_END, T_DECIMAL_END, T_DAYS);
 
 				char *total = g_strdup_printf("%s.%s", parts[0]->val, token->val);
 				gsdl_token_free(parts[0]);
