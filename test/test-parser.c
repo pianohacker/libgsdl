@@ -143,16 +143,29 @@ void test_parser_value_strings() {
 	g_assert(success);
 }
 
+void test_parser_value_datetime() {
+	GString *result = g_string_new("");
+	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);
+
+	g_assert(context != NULL);
+	bool success = gsdl_parser_context_parse_string(context, "tag 2042/4/20");
+	g_assert_cmpstr(result->str, ==, "(tag,gsdldate:2042-04-20\ntag)\n");
+	g_assert(success);
+}
+
+#define TEST(name) g_test_add_func("/parser/"#name, test_parser_##name)
+
 int main(int argc, char **argv) {
 	g_type_init();
 	g_test_init(&argc, &argv, NULL);
 
-	g_test_add_func("/parser/identifier_only", test_parser_identifier_only);
-	g_test_add_func("/parser/identifier_nested", test_parser_identifier_nested);
-	g_test_add_func("/parser/identifier_sequence", test_parser_identifier_sequence);
-	g_test_add_func("/parser/value_numbers", test_parser_value_numbers);
-	g_test_add_func("/parser/value_keywords", test_parser_value_keywords);
-	g_test_add_func("/parser/value_strings", test_parser_value_strings);
+	TEST(identifier_only);
+	TEST(identifier_nested);
+	TEST(identifier_sequence);
+	TEST(value_numbers);
+	TEST(value_keywords);
+	TEST(value_strings);
+	TEST(value_datetime);
 
 	return g_test_run();
 }

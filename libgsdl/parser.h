@@ -22,7 +22,7 @@ typedef struct {
 		GSDLParserContext *context,
 		const gchar *name,
 		gpointer user_data,
-		GError **errr
+		GError **err
 	);
 
 	void (*error)(

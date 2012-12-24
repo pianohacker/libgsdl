@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <glib.h>
 #include <glib-object.h>
 #include <stdarg.h>
@@ -158,6 +159,8 @@ static bool _token_is_value(GSDLToken *token) {
 		case T_NUMBER:
 		case T_LONGINTEGER:
 		case T_DAYS:
+		case T_DATE_PART:
+		case T_TIME_PART:
 		case T_BOOLEAN:
 		case T_NULL:
 		case T_STRING:
@@ -172,6 +175,7 @@ static bool _token_is_value(GSDLToken *token) {
 static bool _parse_value(GSDLParserContext *self, GValue *value) {
 	char *end;
 	GSDLToken *token, *next, *parts[8];
+	guint part_nums[8];
 	REQUIRE(_read(self, &token));
 
 	switch (token->type) {
@@ -227,14 +231,6 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 				}
 
 				g_free(total);
-			} else if (next->type == '/') {
-				_consume(self);
-				gsdl_token_free(next);
-				// TODO: handle times
-			} else if (next->type == ':') {
-				_consume(self);
-				gsdl_token_free(next);
-				// TODO: handle times
 			} else {
 				g_value_init(value, G_TYPE_INT);
 				g_value_set_int(value, strtol(token->val, &end, 10));
@@ -244,12 +240,61 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 
 		case T_LONGINTEGER:
 			g_value_init(value, G_TYPE_INT64);
+			errno = 0;
 			g_value_set_int64(value, strtoll(token->val, &end, 10));
 
-			if (*end) {
+			if (errno) {
 				_error(self, token, GSDL_SYNTAX_ERROR_BAD_LITERAL, "Long integer out of range");
 
 				return false;
+			}
+
+			break;
+
+		case T_DATE_PART:
+			g_value_init(value, GSDL_TYPE_DATE);
+
+			parts[0] = token;
+			part_nums[0] = atoi(parts[0]->val);
+
+			REQUIRE(_read(self, &token));
+			EXPECT(T_DATE_PART);
+			part_nums[1] = atoi(token->val);
+
+			REQUIRE(_read(self, &token));
+			EXPECT(T_NUMBER);
+			part_nums[2] = atoi(token->val);
+
+			if (!g_date_valid_dmy(part_nums[2], part_nums[1], part_nums[0])) {
+				_error(self, parts[0], GSDL_SYNTAX_ERROR_BAD_LITERAL, "Invalid date");
+
+				return false;
+			}
+
+			REQUIRE(_peek(self, &token));
+
+			if (token->type = T_TIME_PART) {
+				_consume(self);
+				part_nums[3] = atoi(token->val);
+
+				REQUIRE(_read(self, &token));
+				EXPECT(T_NUMBER, T_TIME_PART);
+				part_nums[4] = atoi(token->val);
+
+				if (token->type == T_NUMBER) {
+					part_nums[5] = 0;
+				} else {
+					REQUIRE(_read(self, &token));
+					EXPECT(T_NUMBER);
+					part_nums[5] = atoi(token->val);
+				}
+
+				GDateTime *datetime = g_datetime_new_local(part_nums[0], part_nums[1], part_nums[2], part_nums[3], part_nums[4], part_nums[5]);
+			} else {
+				// This is cool because it'll get copied anyway
+				GDate date;
+				g_date_set_dmy(&date, part_nums[2], part_nums[1], part_nums[0]);
+				gsdl_gvalue_set_date(value, &date);
 			}
 
 			break;

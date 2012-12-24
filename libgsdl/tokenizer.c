@@ -27,7 +27,7 @@ struct _GSDLTokenizer {
 };
 
 //> Static Data
-static char *TOKEN_NAMES[14] = {
+static char *TOKEN_NAMES[15] = {
 	"EOF",
 	"identifier",
 	"number",
@@ -35,6 +35,7 @@ static char *TOKEN_NAMES[14] = {
 	"float suffix",
 	"decimal suffix",
 	"double suffix",
+	"date part",
 	"time part",
 	"days",
 	"boolean",

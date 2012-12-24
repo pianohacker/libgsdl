@@ -182,20 +182,22 @@ void test_tokenizer_string_invalid_utf8() {
 	g_assert_error(error, G_CONVERT_ERROR, G_CONVERT_ERROR_ILLEGAL_SEQUENCE);
 }
 
+#define TEST(name) g_test_add_func("/tokenizer/"#name, test_tokenizer_##name)
+
 int main(int argc, char **argv) {
 	g_test_init(&argc, &argv, NULL);
 
-	g_test_add_func("/tokenizer/string_simple", test_tokenizer_string_simple);
+	TEST(string_simple);
 
-	g_test_add_func("/tokenizer/string_binary", test_tokenizer_string_binary);
-	g_test_add_func("/tokenizer/string_comments", test_tokenizer_string_comments);
-	g_test_add_func("/tokenizer/string_keywords", test_tokenizer_string_keywords);
-	g_test_add_func("/tokenizer/string_numbers", test_tokenizer_string_numbers);
-	g_test_add_func("/tokenizer/string_strings", test_tokenizer_string_strings);
+	TEST(string_binary);
+	TEST(string_comments);
+	TEST(string_keywords);
+	TEST(string_numbers);
+	TEST(string_strings);
 
-	g_test_add_func("/tokenizer/file_full", test_tokenizer_file_full);
+	TEST(file_full);
 
-	g_test_add_func("/tokenizer/string_invalid_utf8", test_tokenizer_string_invalid_utf8);
+	TEST(string_invalid_utf8);
 
 	return g_test_run();
 }
