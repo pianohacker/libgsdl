@@ -188,7 +188,7 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 				parts[0] = token;
 
 				REQUIRE(_read(self, &token));
-				EXPECT(T_NUMBER, T_FLOAT_END, T_DOUBLE_END, T_DECIMAL_END, T_DAYS);
+				EXPECT(T_NUMBER, T_FLOAT_END, T_DOUBLE_END, T_DECIMAL_END);
 
 				char *total = g_strdup_printf("%s.%s", parts[0]->val, token->val);
 				gsdl_token_free(parts[0]);
@@ -252,18 +252,18 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 			break;
 
 		case T_DATE_PART:
-			g_value_init(value, GSDL_TYPE_DATE);
-
 			parts[0] = token;
 			part_nums[0] = atoi(parts[0]->val);
 
 			REQUIRE(_read(self, &token));
 			EXPECT(T_DATE_PART);
 			part_nums[1] = atoi(token->val);
+			gsdl_token_free(token);
 
 			REQUIRE(_read(self, &token));
 			EXPECT(T_NUMBER);
 			part_nums[2] = atoi(token->val);
+			gsdl_token_free(token);
 
 			if (!g_date_valid_dmy(part_nums[2], part_nums[1], part_nums[0])) {
 				_error(self, parts[0], GSDL_SYNTAX_ERROR_BAD_LITERAL, "Invalid date");
@@ -271,33 +271,44 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 				return false;
 			}
 
-			REQUIRE(_peek(self, &token));
+			REQUIRE(_peek(self, &next));
 
-			if (token->type = T_TIME_PART) {
+			if (next->type == T_TIME_PART) {
+				g_value_init(value, GSDL_TYPE_DATETIME);
+
 				_consume(self);
-				part_nums[3] = atoi(token->val);
+				part_nums[3] = atoi(next->val);
+				gsdl_token_free(next);
 
 				REQUIRE(_read(self, &token));
 				EXPECT(T_NUMBER, T_TIME_PART);
 				part_nums[4] = atoi(token->val);
 
 				if (token->type == T_NUMBER) {
+					gsdl_token_free(token);
 					part_nums[5] = 0;
 				} else {
+					gsdl_token_free(token);
 					REQUIRE(_read(self, &token));
 					EXPECT(T_NUMBER);
 					part_nums[5] = atoi(token->val);
+					gsdl_token_free(token);
 				}
 
-				GDateTime *datetime = g_datetime_new_local(part_nums[0], part_nums[1], part_nums[2], part_nums[3], part_nums[4], part_nums[5]);
+				GDateTime *datetime = g_date_time_new_local(part_nums[0], part_nums[1], part_nums[2], part_nums[3], part_nums[4], part_nums[5]);
+				gsdl_gvalue_set_datetime(value, datetime);
+
+				return true;
 			} else {
+				g_value_init(value, GSDL_TYPE_DATE);
+
 				// This is cool because it'll get copied anyway
 				GDate date;
 				g_date_set_dmy(&date, part_nums[2], part_nums[1], part_nums[0]);
 				gsdl_gvalue_set_date(value, &date);
-			}
 
-			break;
+				return true;
+			}
 
 		case T_BOOLEAN:
 			g_value_init(value, G_TYPE_BOOLEAN);

@@ -140,7 +140,7 @@ static void _value_transform_date_string(const GValue *src_value, GValue *dest_v
 }
 
 static void _value_transform_datetime_string(const GValue *src_value, GValue *dest_value) {
-	dest_value->data[0].v_pointer = g_date_time_format((GDateTime*) src_value->data[0].v_pointer, "%FT%R:%s+%z");
+	dest_value->data[0].v_pointer = g_date_time_format((GDateTime*) src_value->data[0].v_pointer, "%FT%T%z");
 }
 
 static void _value_init_timespan(GValue *value) {

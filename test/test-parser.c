@@ -148,8 +148,8 @@ void test_parser_value_datetime() {
 	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);
 
 	g_assert(context != NULL);
-	bool success = gsdl_parser_context_parse_string(context, "tag 2042/4/20");
-	g_assert_cmpstr(result->str, ==, "(tag,gsdldate:2042-04-20\ntag)\n");
+	bool success = gsdl_parser_context_parse_string(context, "tag 2042/4/20 2012/2/5 5:30 \"c\" 1924/11/4 19:34:5");
+	g_assert_cmpstr(result->str, ==, "(tag,gsdldate:2042-04-20,gsdldatetime:2012-02-05T05:30:00-0700,gchararray:\"c\",gsdldatetime:1924-11-04T19:34:05-0700\ntag)\n");
 	g_assert(success);
 }
 
