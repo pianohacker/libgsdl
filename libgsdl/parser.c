@@ -172,71 +172,144 @@ static bool _token_is_value(GSDLToken *token) {
 	}
 }
 
+static bool _parse_number(GSDLParserContext *self, GValue *value, GSDLToken *token) {
+	GSDLToken *next, *parts[1];
+
+	REQUIRE(_peek(self, &next));
+
+	if (next->type == '.') {
+		_consume(self);
+		gsdl_token_free(next);
+		parts[0] = token;
+
+		REQUIRE(_read(self, &token));
+		EXPECT(T_NUMBER, T_FLOAT_END, T_DOUBLE_END, T_DECIMAL_END);
+
+		char *total = g_strdup_printf("%s.%s", parts[0]->val, token->val);
+		gsdl_token_free(parts[0]);
+
+		switch (token->type) {
+			case T_NUMBER:
+			case T_DOUBLE_END:
+				g_value_init(value, G_TYPE_DOUBLE);
+
+				g_value_set_double(value, strtod(total, &end));
+
+				if (*end) {
+					_error(self, token, GSDL_SYNTAX_ERROR_BAD_LITERAL, "Double out of range");
+
+					return false;
+				}
+
+				break;
+
+			case T_FLOAT_END:
+				g_value_init(value, G_TYPE_FLOAT);
+
+				g_value_set_float(value, strtof(total, &end));
+
+				if (*end) {
+					_error(self, token, GSDL_SYNTAX_ERROR_BAD_LITERAL, "Float out of range");
+
+					return false;
+				}
+
+				break;
+			case T_DECIMAL_END:
+				g_value_init(value, GSDL_TYPE_DECIMAL);
+
+				gsdl_gvalue_set_decimal(value, total);
+
+				break;
+			default:
+				g_return_val_if_reached(false);
+		}
+
+		g_free(total);
+	} else {
+		g_value_init(value, G_TYPE_INT);
+		g_value_set_int(value, strtol(token->val, &end, 10));
+	}
+
+	gsdl_token_free(token);
+}
+
+static bool _parse_datetime(GSDLParserContext *self, GValue *value, GSDLToken *token) {
+	GSDLToken *next, *parts[1];
+
+	parts[0] = token;
+	part_nums[0] = atoi(parts[0]->val);
+
+	REQUIRE(_read(self, &token));
+	EXPECT(T_DATE_PART);
+	part_nums[1] = atoi(token->val);
+	gsdl_token_free(token);
+
+	REQUIRE(_read(self, &token));
+	EXPECT(T_NUMBER);
+	part_nums[2] = atoi(token->val);
+	gsdl_token_free(token);
+
+	if (!g_date_valid_dmy(part_nums[2], part_nums[1], part_nums[0])) {
+		_error(self, parts[0], GSDL_SYNTAX_ERROR_BAD_LITERAL, "Invalid date");
+
+		return false;
+	}
+
+	REQUIRE(_peek(self, &next));
+
+	if (next->type == T_TIME_PART) {
+		g_value_init(value, GSDL_TYPE_DATETIME);
+
+		_consume(self);
+		part_nums[3] = atoi(next->val);
+		gsdl_token_free(next);
+
+		REQUIRE(_read(self, &token));
+		EXPECT(T_NUMBER, T_TIME_PART);
+		part_nums[4] = atoi(token->val);
+
+		if (token->type == T_NUMBER) {
+			gsdl_token_free(token);
+			part_nums[5] = 0;
+		} else {
+			gsdl_token_free(token);
+			REQUIRE(_read(self, &token));
+			EXPECT(T_NUMBER);
+			part_nums[5] = atoi(token->val);
+			gsdl_token_free(token);
+		}
+
+		GDateTime *datetime = g_date_time_new_local(part_nums[0], part_nums[1], part_nums[2], part_nums[3], part_nums[4], part_nums[5]);
+
+		if (!datetime) {
+			_error(self, parts[0], GSDL_SYNTAX_ERROR_BAD_LITERAL, "Invalid time in date/time");
+
+			return false;
+		}
+
+		gsdl_gvalue_set_datetime(value, datetime);
+	} else {
+		g_value_init(value, GSDL_TYPE_DATE);
+
+		// This is cool because it'll get copied anyway
+		GDate date;
+		g_date_set_dmy(&date, part_nums[2], part_nums[1], part_nums[0]);
+		gsdl_gvalue_set_date(value, &date);
+	}
+
+	return true;
+}
+
 static bool _parse_value(GSDLParserContext *self, GValue *value) {
 	char *end;
-	GSDLToken *token, *next, *parts[8];
+	GSDLToken *token, *next;
 	guint part_nums[8];
 	REQUIRE(_read(self, &token));
 
 	switch (token->type) {
 		case T_NUMBER:
-			REQUIRE(_peek(self, &next));
-
-			if (next->type == '.') {
-				_consume(self);
-				gsdl_token_free(next);
-				parts[0] = token;
-
-				REQUIRE(_read(self, &token));
-				EXPECT(T_NUMBER, T_FLOAT_END, T_DOUBLE_END, T_DECIMAL_END);
-
-				char *total = g_strdup_printf("%s.%s", parts[0]->val, token->val);
-				gsdl_token_free(parts[0]);
-
-				switch (token->type) {
-					case T_NUMBER:
-					case T_DOUBLE_END:
-						g_value_init(value, G_TYPE_DOUBLE);
-
-						g_value_set_double(value, strtod(total, &end));
-
-						if (*end) {
-							_error(self, token, GSDL_SYNTAX_ERROR_BAD_LITERAL, "Double out of range");
-
-							return false;
-						}
-
-						break;
-
-					case T_FLOAT_END:
-						g_value_init(value, G_TYPE_FLOAT);
-
-						g_value_set_float(value, strtof(total, &end));
-
-						if (*end) {
-							_error(self, token, GSDL_SYNTAX_ERROR_BAD_LITERAL, "Float out of range");
-
-							return false;
-						}
-
-						break;
-					case T_DECIMAL_END:
-						g_value_init(value, GSDL_TYPE_DECIMAL);
-
-						gsdl_gvalue_set_decimal(value, total);
-
-						break;
-					default:
-						g_return_val_if_reached(false);
-				}
-
-				g_free(total);
-			} else {
-				g_value_init(value, G_TYPE_INT);
-				g_value_set_int(value, strtol(token->val, &end, 10));
-			}
-
-			break;
+			return _parse_number(self, value, token);
 
 		case T_LONGINTEGER:
 			g_value_init(value, G_TYPE_INT64);
@@ -252,63 +325,7 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 			break;
 
 		case T_DATE_PART:
-			parts[0] = token;
-			part_nums[0] = atoi(parts[0]->val);
-
-			REQUIRE(_read(self, &token));
-			EXPECT(T_DATE_PART);
-			part_nums[1] = atoi(token->val);
-			gsdl_token_free(token);
-
-			REQUIRE(_read(self, &token));
-			EXPECT(T_NUMBER);
-			part_nums[2] = atoi(token->val);
-			gsdl_token_free(token);
-
-			if (!g_date_valid_dmy(part_nums[2], part_nums[1], part_nums[0])) {
-				_error(self, parts[0], GSDL_SYNTAX_ERROR_BAD_LITERAL, "Invalid date");
-
-				return false;
-			}
-
-			REQUIRE(_peek(self, &next));
-
-			if (next->type == T_TIME_PART) {
-				g_value_init(value, GSDL_TYPE_DATETIME);
-
-				_consume(self);
-				part_nums[3] = atoi(next->val);
-				gsdl_token_free(next);
-
-				REQUIRE(_read(self, &token));
-				EXPECT(T_NUMBER, T_TIME_PART);
-				part_nums[4] = atoi(token->val);
-
-				if (token->type == T_NUMBER) {
-					gsdl_token_free(token);
-					part_nums[5] = 0;
-				} else {
-					gsdl_token_free(token);
-					REQUIRE(_read(self, &token));
-					EXPECT(T_NUMBER);
-					part_nums[5] = atoi(token->val);
-					gsdl_token_free(token);
-				}
-
-				GDateTime *datetime = g_date_time_new_local(part_nums[0], part_nums[1], part_nums[2], part_nums[3], part_nums[4], part_nums[5]);
-				gsdl_gvalue_set_datetime(value, datetime);
-
-				return true;
-			} else {
-				g_value_init(value, GSDL_TYPE_DATE);
-
-				// This is cool because it'll get copied anyway
-				GDate date;
-				g_date_set_dmy(&date, part_nums[2], part_nums[1], part_nums[0]);
-				gsdl_gvalue_set_date(value, &date);
-
-				return true;
-			}
+			return _parse_datetime(self, value, token);
 
 		case T_BOOLEAN:
 			g_value_init(value, G_TYPE_BOOLEAN);
