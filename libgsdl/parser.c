@@ -156,6 +156,7 @@ static bool _expect(GSDLParserContext *self, GSDLToken *token, ...) {
 //> Parser Functions
 static bool _token_is_value(GSDLToken *token) {
 	switch (token->type) {
+		case '-':
 		case T_NUMBER:
 		case T_LONGINTEGER:
 		case T_DAYS:
@@ -172,14 +173,14 @@ static bool _token_is_value(GSDLToken *token) {
 	}
 }
 
-static bool _parse_number(GSDLParserContext *self, GValue *value, GSDLToken *token) {
+static bool _parse_number(GSDLParserContext *self, GValue *value, GSDLToken *token, int sign) {
 	char *end;
 	GSDLToken *next, *parts[1];
 
 	if (token->type == T_LONGINTEGER) {
 		g_value_init(value, G_TYPE_INT64);
 		errno = 0;
-		g_value_set_int64(value, strtoll(token->val, &end, 10));
+		g_value_set_int64(value, sign * strtoll(token->val, &end, 10));
 
 		if (errno) {
 			_error(self, token, GSDL_SYNTAX_ERROR_BAD_LITERAL, "Long integer out of range");
@@ -201,7 +202,7 @@ static bool _parse_number(GSDLParserContext *self, GValue *value, GSDLToken *tok
 		REQUIRE(_read(self, &token));
 		EXPECT(T_NUMBER, T_FLOAT_END, T_DOUBLE_END, T_DECIMAL_END);
 
-		char *total = g_strdup_printf("%s.%s", parts[0]->val, token->val);
+		char *total = g_strdup_printf("%s%s.%s", sign <= 0 ? "-" : "", parts[0]->val, token->val);
 		gsdl_token_free(parts[0]);
 
 		switch (token->type) {
@@ -244,7 +245,7 @@ static bool _parse_number(GSDLParserContext *self, GValue *value, GSDLToken *tok
 		g_free(total);
 	} else {
 		g_value_init(value, G_TYPE_INT);
-		g_value_set_int(value, strtol(token->val, &end, 10));
+		g_value_set_int(value, sign * strtol(token->val, &end, 10));
 	}
 
 	gsdl_token_free(token);
@@ -345,21 +346,127 @@ static bool _parse_datetime(GSDLParserContext *self, GValue *value, GSDLToken *t
 	return true;
 }
 
+static bool _parse_timespan(GSDLParserContext *self, GValue *value, GSDLToken *token, int sign) {
+	GSDLToken *next, *parts[2];
+	double part_nums[5];
+/*
+	parts[0] = token;
+	part_nums[0] = atoi(parts[0]->val);
+
+	REQUIRE(_read(self, &token));
+	EXPECT(T_DATE_PART);
+	part_nums[1] = atoi(token->val);
+	gsdl_token_free(token);
+
+	REQUIRE(_read(self, &token));
+	EXPECT(T_NUMBER);
+	part_nums[2] = atof(token->val);
+	gsdl_token_free(token);
+
+	if (!g_date_valid_dmy(part_nums[2], part_nums[1], part_nums[0])) {
+		_error(self, parts[0], GSDL_SYNTAX_ERROR_BAD_LITERAL, "Invalid date");
+
+		return false;
+	}
+
+	REQUIRE(_peek(self, &next));
+
+	if (next->type == T_TIME_PART) {
+		g_value_init(value, GSDL_TYPE_DATETIME);
+
+		_consume(self);
+		part_nums[3] = atoi(next->val);
+		gsdl_token_free(next);
+
+		REQUIRE(_read(self, &token));
+		EXPECT(T_NUMBER, T_TIME_PART);
+		part_nums[4] = atoi(token->val);
+
+		if (token->type == T_NUMBER) {
+			gsdl_token_free(token);
+			part_nums[5] = 0;
+		} else {
+			gsdl_token_free(token);
+			REQUIRE(_read(self, &token));
+			EXPECT(T_NUMBER);
+			REQUIRE(_peek(self, &next));
+
+			if (next->type == '.') {
+				_consume(self);
+				gsdl_token_free(next);
+
+				REQUIRE(_read(self, &next));
+				char *total = g_strdup_printf("%s.%s", token->val, next->val);
+
+				part_nums[5] = atof(total);
+
+				g_free(total);
+			} else {
+				part_nums[5] = atoi(token->val);
+			}
+
+			gsdl_token_free(token);
+		}
+
+		GTimeZone *timezone;
+
+		REQUIRE(_peek(self, &next));
+
+		if (next->type == '-') {
+			_consume(self);
+			gsdl_token_free(next);
+		} else {
+			timezone = g_time_zone_new_local();
+		}
+
+		GDateTime *datetime = g_date_time_new(timezone, part_nums[0], part_nums[1], part_nums[2], part_nums[3], part_nums[4], part_nums[5]);
+
+		if (!datetime) {
+			_error(self, parts[0], GSDL_SYNTAX_ERROR_BAD_LITERAL, "Invalid time in date/time");
+
+			return false;
+		}
+
+		gsdl_gvalue_set_datetime(value, datetime);
+	} else {
+		g_value_init(value, GSDL_TYPE_DATE);
+
+		// This is cool because it'll get copied anyway
+		GDate date;
+		g_date_set_dmy(&date, part_nums[2], part_nums[1], part_nums[0]);
+		gsdl_gvalue_set_date(value, &date);
+	}
+*/
+	return true;
+}
+
 static bool _parse_value(GSDLParserContext *self, GValue *value) {
 	GSDLToken *token;
 	REQUIRE(_read(self, &token));
 
+	int sign = 1;
+	
+	retry:
 	switch (token->type) {
+		case '-':
+			sign = -1;
+			gsdl_token_free(token);
+
+			REQUIRE(_read(self, &token));
+			EXPECT(T_NUMBER, T_LONGINTEGER, T_DAYS, T_TIME_PART);
+
+			goto retry;
+
 		case T_NUMBER:
 		case T_LONGINTEGER:
-			return _parse_number(self, value, token);
+			return _parse_number(self, value, token, sign);
 
 		case T_DATE_PART:
 			return _parse_datetime(self, value, token);
 
-		/*case T_DAYS:
+		case T_DAYS:
 		case T_TIME_PART:
-			return _parse_timespan(self, value, token);*/
+			return _parse_timespan(self, value, token, sign);
 
 		case T_BOOLEAN:
 			g_value_init(value, G_TYPE_BOOLEAN);
