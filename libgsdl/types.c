@@ -1,6 +1,7 @@
 #include <glib.h>
 #include <glib-object.h>
 #include <gobject/gvaluecollector.h>
+#include <math.h>
 #include <stdbool.h>
 
 #include "types.h"
@@ -140,7 +141,15 @@ static void _value_transform_date_string(const GValue *src_value, GValue *dest_v
 }
 
 static void _value_transform_datetime_string(const GValue *src_value, GValue *dest_value) {
-	dest_value->data[0].v_pointer = g_date_time_format((GDateTime*) src_value->data[0].v_pointer, "%FT%T%z");
+	GDateTime *src = (GDateTime*) src_value->data[0].v_pointer;
+	gdouble trash;
+	int milliseconds = round(modf(g_date_time_get_seconds(src), &trash) * 1000);
+
+	if (milliseconds) {
+		dest_value->data[0].v_pointer = g_strdup_printf("%s.%03d%s", g_date_time_format(src, "%FT%T"), milliseconds, g_date_time_format(src, "%z"));
+	} else {
+		dest_value->data[0].v_pointer = g_date_time_format(src, "%FT%T%z");
+	}
 }
 
 static void _value_init_timespan(GValue *value) {

@@ -12,7 +12,7 @@ add_library(gsdl SHARED
 	libgsdl/types.c
 )
 include_directories(${GLIB_INCLUDE_DIRS})
-target_link_libraries(gsdl ${GLIB_LIBRARIES})
+target_link_libraries(gsdl m ${GLIB_LIBRARIES})
 
 enable_testing()
 file(GLOB TESTS test/test-*.c)

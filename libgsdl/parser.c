@@ -253,7 +253,7 @@ static bool _parse_number(GSDLParserContext *self, GValue *value, GSDLToken *tok
 
 static bool _parse_datetime(GSDLParserContext *self, GValue *value, GSDLToken *token) {
 	GSDLToken *next, *parts[2];
-	guint part_nums[8];
+	double part_nums[8];
 
 	parts[0] = token;
 	part_nums[0] = atoi(parts[0]->val);
@@ -265,7 +265,7 @@ static bool _parse_datetime(GSDLParserContext *self, GValue *value, GSDLToken *t
 
 	REQUIRE(_read(self, &token));
 	EXPECT(T_NUMBER);
-	part_nums[2] = atoi(token->val);
+	part_nums[2] = atof(token->val);
 	gsdl_token_free(token);
 
 	if (!g_date_valid_dmy(part_nums[2], part_nums[1], part_nums[0])) {
@@ -294,11 +294,37 @@ static bool _parse_datetime(GSDLParserContext *self, GValue *value, GSDLToken *t
 			gsdl_token_free(token);
 			REQUIRE(_read(self, &token));
 			EXPECT(T_NUMBER);
-			part_nums[5] = atoi(token->val);
+			REQUIRE(_peek(self, &next));
+
+			if (next->type == '.') {
+				_consume(self);
+				gsdl_token_free(next);
+
+				REQUIRE(_read(self, &next));
+				char *total = g_strdup_printf("%s.%s", token->val, next->val);
+
+				part_nums[5] = atof(total);
+
+				g_free(total);
+			} else {
+				part_nums[5] = atoi(token->val);
+			}
+
 			gsdl_token_free(token);
 		}
 
-		GDateTime *datetime = g_date_time_new_local(part_nums[0], part_nums[1], part_nums[2], part_nums[3], part_nums[4], part_nums[5]);
+		GTimeZone *timezone;
+
+		REQUIRE(_peek(self, &next));
+
+		if (next->type == '-') {
+			_consume(self);
+			gsdl_token_free(next);
+		} else {
+			timezone = g_time_zone_new_local();
+		}
+
+		GDateTime *datetime = g_date_time_new(timezone, part_nums[0], part_nums[1], part_nums[2], part_nums[3], part_nums[4], part_nums[5]);
 
 		if (!datetime) {
 			_error(self, parts[0], GSDL_SYNTAX_ERROR_BAD_LITERAL, "Invalid time in date/time");
