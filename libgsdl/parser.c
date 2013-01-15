@@ -173,7 +173,23 @@ static bool _token_is_value(GSDLToken *token) {
 }
 
 static bool _parse_number(GSDLParserContext *self, GValue *value, GSDLToken *token) {
+	char *end;
 	GSDLToken *next, *parts[1];
+
+	if (token->type == T_LONGINTEGER) {
+		g_value_init(value, G_TYPE_INT64);
+		errno = 0;
+		g_value_set_int64(value, strtoll(token->val, &end, 10));
+
+		if (errno) {
+			_error(self, token, GSDL_SYNTAX_ERROR_BAD_LITERAL, "Long integer out of range");
+
+			return false;
+		}
+
+		gsdl_token_free(token);
+		return true;
+	}
 
 	REQUIRE(_peek(self, &next));
 
@@ -232,10 +248,12 @@ static bool _parse_number(GSDLParserContext *self, GValue *value, GSDLToken *tok
 	}
 
 	gsdl_token_free(token);
+	return true;
 }
 
 static bool _parse_datetime(GSDLParserContext *self, GValue *value, GSDLToken *token) {
-	GSDLToken *next, *parts[1];
+	GSDLToken *next, *parts[2];
+	guint part_nums[8];
 
 	parts[0] = token;
 	part_nums[0] = atoi(parts[0]->val);
@@ -302,30 +320,20 @@ static bool _parse_datetime(GSDLParserContext *self, GValue *value, GSDLToken *t
 }
 
 static bool _parse_value(GSDLParserContext *self, GValue *value) {
-	char *end;
-	GSDLToken *token, *next;
-	guint part_nums[8];
+	GSDLToken *token;
 	REQUIRE(_read(self, &token));
 
 	switch (token->type) {
 		case T_NUMBER:
-			return _parse_number(self, value, token);
-
 		case T_LONGINTEGER:
-			g_value_init(value, G_TYPE_INT64);
-			errno = 0;
-			g_value_set_int64(value, strtoll(token->val, &end, 10));
-
-			if (errno) {
-				_error(self, token, GSDL_SYNTAX_ERROR_BAD_LITERAL, "Long integer out of range");
-
-				return false;
-			}
-
-			break;
+			return _parse_number(self, value, token);
 
 		case T_DATE_PART:
 			return _parse_datetime(self, value, token);
+
+		/*case T_DAYS:
+		case T_TIME_PART:
+			return _parse_timespan(self, value, token);*/
 
 		case T_BOOLEAN:
 			g_value_init(value, G_TYPE_BOOLEAN);
