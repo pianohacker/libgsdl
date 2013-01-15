@@ -356,17 +356,13 @@ static bool _parse_timespan(GSDLParserContext *self, GValue *value, GSDLToken *t
 		part_nums[0] = atoi(first->val);
 
 		REQUIRE(_read(self, &token));
-		EXPECT(':');
-		gsdl_token_free(token);
-
-		REQUIRE(_read(self, &token));
 		EXPECT(T_TIME_PART);
+		part_nums[1] = atoi(token->val);
+		gsdl_token_free(token);
 	} else {
 		part_nums[0] = 0;
+		part_nums[1] = atoi(token->val);
 	}
-
-	part_nums[1] = atoi(token->val);
-	gsdl_token_free(token);
 
 	REQUIRE(_read(self, &token));
 	EXPECT(T_TIME_PART);
@@ -384,13 +380,12 @@ static bool _parse_timespan(GSDLParserContext *self, GValue *value, GSDLToken *t
 		_consume(self);
 		gsdl_token_free(next);
 
-		REQUIRE(_read(self, &next));
+		REQUIRE(_read(self, &token));
 		part_nums[4] = atoi(token->val);
+		gsdl_token_free(token);
 	} else {
 		part_nums[4] = 0;
 	}
-
-	gsdl_token_free(token);
 
 	g_value_init(value, GSDL_TYPE_TIMESPAN);
 	gsdl_gvalue_set_timespan(value, sign * (
@@ -401,6 +396,7 @@ static bool _parse_timespan(GSDLParserContext *self, GValue *value, GSDLToken *t
 		part_nums[4] * G_TIME_SPAN_MILLISECOND
 	));
 
+	gsdl_token_free(first);
 	return true;
 }
 

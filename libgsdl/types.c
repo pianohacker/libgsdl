@@ -112,6 +112,18 @@ DEF_GET_SET(decimal, DECIMAL, g_strdup, gchar)
 DEF_GET_SET(date, DATE, _g_date_dup, GDate)
 DEF_GET_SET(datetime, DATETIME, _g_datetime_dup, GDateTime)
 
+void gsdl_gvalue_set_timespan(GValue *value, const GTimeSpan src) {
+	g_return_if_fail(GSDL_GVALUE_HOLDS_TIMESPAN(value));
+
+	value->data[0].v_int64 = src;
+}
+
+GTimeSpan gsdl_gvalue_get_timespan(const GValue *value) {
+	g_return_val_if_fail(GSDL_GVALUE_HOLDS_TIMESPAN(value), NULL);
+
+	return value->data[0].v_int64;
+}
+
 GType GSDL_TYPE_TIMESPAN;
 DEF_POINTER_VALUE(decimal, DECIMAL, g_strdup);
 DEF_POINTER_VALUE(date, DATE, _g_date_dup);

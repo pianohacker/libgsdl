@@ -12,6 +12,10 @@ DEF_PROTO(decimal, DECIMAL, gchar)
 DEF_PROTO(date, DATE, GDate)
 DEF_PROTO(datetime, DATETIME, GDateTime)
 
+extern GType GSDL_TYPE_TIMESPAN;
+void gsdl_gvalue_set_timespan(GValue *value, const GTimeSpan src);
+GTimeSpan gsdl_gvalue_get_timespan(const GValue *value);
+
 #define GSDL_GVALUE_HOLDS_DECIMAL(value) (G_TYPE_CHECK_VALUE_TYPE((value), GSDL_TYPE_DECIMAL))
 #define GSDL_GVALUE_HOLDS_DATE(value) (G_TYPE_CHECK_VALUE_TYPE((value), GSDL_TYPE_DATE))
 #define GSDL_GVALUE_HOLDS_DATETIME(value) (G_TYPE_CHECK_VALUE_TYPE((value), GSDL_TYPE_DATETIME))

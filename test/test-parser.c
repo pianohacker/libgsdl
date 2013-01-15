@@ -153,6 +153,16 @@ void test_parser_value_datetime() {
 	g_assert(success);
 }
 
+void test_parser_value_timespan() {
+	GString *result = g_string_new("");
+	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);
+
+	g_assert(context != NULL);
+	bool success = gsdl_parser_context_parse_string(context, "tag 00:40:20 42:00:52 30d:00:1:20 -50d:32:23:21 20:42:32.324 -323:00:00.342");
+	g_assert_cmpstr(result->str, ==, "(tag,gsdltimespan:2420000000,gsdltimespan:151252000000,gsdltimespan:2592080000000,gsdltimespan:-4436601000000,gsdltimespan:74552324000,gsdltimespan:-1162800342000\ntag)\n");
+	g_assert(success);
+}
+
 #define TEST(name) g_test_add_func("/parser/"#name, test_parser_##name)
 
 int main(int argc, char **argv) {
@@ -166,6 +176,7 @@ int main(int argc, char **argv) {
 	TEST(value_keywords);
 	TEST(value_strings);
 	TEST(value_datetime);
+	TEST(value_timespan);
 
 	return g_test_run();
 }
