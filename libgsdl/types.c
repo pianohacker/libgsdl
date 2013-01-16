@@ -119,7 +119,7 @@ void gsdl_gvalue_set_timespan(GValue *value, const GTimeSpan src) {
 }
 
 GTimeSpan gsdl_gvalue_get_timespan(const GValue *value) {
-	g_return_val_if_fail(GSDL_GVALUE_HOLDS_TIMESPAN(value), NULL);
+	g_return_val_if_fail(GSDL_GVALUE_HOLDS_TIMESPAN(value), 0);
 
 	return value->data[0].v_int64;
 }

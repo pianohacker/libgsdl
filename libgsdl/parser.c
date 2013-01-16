@@ -155,7 +155,7 @@ static bool _expect(GSDLParserContext *self, GSDLToken *token, ...) {
 
 //> Parser Functions
 static bool _token_is_value(GSDLToken *token) {
-	switch (token->type) {
+	switch ((int) token->type) {
 		case '-':
 		case T_NUMBER:
 		case T_LONGINTEGER:
@@ -407,7 +407,7 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 	int sign = 1;
 	
 	retry:
-	switch (token->type) {
+	switch ((int) token->type) {
 		case '-':
 			sign = -1;
 			gsdl_token_free(token);

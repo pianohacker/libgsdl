@@ -1,5 +1,6 @@
 #include <glib.h>
 #include <tokenizer.h>
+#include <unistd.h>
 
 #define ASSERT_TOKEN(t) do { bool success = gsdl_tokenizer_next(tokenizer, &token, &error); g_assert_no_error(error); g_assert(success); g_assert_cmpint(token->type, ==, t); } while(0)
 #define ASSERT_TOKEN_VAL(t, v) do { bool success = gsdl_tokenizer_next(tokenizer, &token, &error); g_assert_no_error(error); g_assert(success); g_assert_cmpint(token->type, ==, t); g_assert_cmpstr(token->val, ==, v); } while(0)
@@ -171,7 +172,7 @@ void test_tokenizer_file_full() {
 	ASSERT_TOKEN(T_EOF);
 	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
 
-	g_unlink(filename);
+	unlink(filename);
 }
 
 void test_tokenizer_string_invalid_utf8() {
