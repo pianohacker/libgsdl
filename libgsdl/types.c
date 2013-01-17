@@ -27,6 +27,18 @@ void gsdl_gvalue_set_##suffix(GValue *value, const type *src) {          \
 	value->data[0].v_pointer = new_val;                                  \
 }                                                                        \
                                                                          \
+void gsdl_gvalue_take_##suffix(GValue *value, type *src) {               \
+	g_return_if_fail(GSDL_GVALUE_HOLDS_##upper_suffix(value));           \
+                                                                         \
+	if (value->data[1].v_uint & G_VALUE_NOCOPY_CONTENTS) {               \
+		value->data[1].v_uint = 0;                                       \
+	} else {                                                             \
+		g_free(value->data[0].v_pointer);                                \
+	}                                                                    \
+                                                                         \
+	value->data[0].v_pointer = src;                                      \
+}                                                                        \
+                                                                         \
 const type* gsdl_gvalue_get_##suffix(const GValue *value) {              \
 	g_return_val_if_fail(GSDL_GVALUE_HOLDS_##upper_suffix(value), NULL); \
                                                                          \
@@ -100,6 +112,12 @@ static gchar* _value_lcopy_##suffix(                                            
 	g_type_register_fundamental(GSDL_TYPE_##upper_suffix, g_intern_static_string("gsdl"#suffix), &info, &finfo, 0); \
 	g_value_register_transform_func(GSDL_TYPE_##upper_suffix, G_TYPE_STRING, _value_transform_##suffix##_string);       
 
+static inline gpointer _g_byte_array_dup(gconstpointer src) {
+	GByteArray *src_array = (GByteArray*) src;
+
+	return g_byte_array_new_take(g_memdup(src_array->data, src_array->len), src_array->len);
+}
+
 static inline gpointer _g_date_dup(gconstpointer src) {
 	return g_memdup(src, sizeof(GDate));
 }
@@ -108,6 +126,7 @@ static inline gpointer _g_datetime_dup(gconstpointer src) {
 	return g_date_time_add((GDateTime*) src, 0);
 }
 
+DEF_GET_SET(binary, BINARY, _g_byte_array_dup, GByteArray)
 DEF_GET_SET(decimal, DECIMAL, g_strdup, gchar)
 DEF_GET_SET(date, DATE, _g_date_dup, GDate)
 DEF_GET_SET(datetime, DATETIME, _g_datetime_dup, GDateTime)
@@ -125,6 +144,7 @@ GTimeSpan gsdl_gvalue_get_timespan(const GValue *value) {
 }
 
 GType GSDL_TYPE_TIMESPAN;
+DEF_POINTER_VALUE(binary, BINARY, _g_byte_array_dup);
 DEF_POINTER_VALUE(decimal, DECIMAL, g_strdup);
 DEF_POINTER_VALUE(date, DATE, _g_date_dup);
 DEF_POINTER_VALUE(datetime, DATETIME, _g_datetime_dup);
@@ -141,6 +161,36 @@ static void _value_free_pointer(GValue *value) {
 
 static gpointer _value_peek_pointer(const GValue *value) {
 	return value->data[0].v_pointer;
+}
+
+static void _value_transform_binary_string(const GValue *src_value, GValue *dest_value) {
+	GByteArray *src = (GByteArray*) src_value->data[0].v_pointer;
+	char *result = g_malloc(src->len * 4 + 1);
+	guchar *in = src->data;
+	guchar *end = in + src->len;
+	
+	char *out = result;
+
+	for (; in < end; in++) {
+		if (*in == 0) {
+			*out++ = '\\';
+			*out++ = '0';
+		} else if (*in < 32 || *in > 127) {
+			*out++ = '\\';
+			*out++ = 'x';
+
+			int digit = *in >> 4;
+			*out++ = digit < 10 ? '0' + digit : 'a' + digit - 9;
+			digit = *in % 16;
+			*out++ = digit < 10 ? '0' + digit : 'a' + digit - 9;
+		} else {
+			*out++ = (gchar) *in;
+		}
+	}
+
+	*out++ = '\0';
+
+	dest_value->data[0].v_pointer = result;;
 }
 
 static void _value_transform_decimal_string(const GValue *src_value, GValue *dest_value) {
@@ -219,8 +269,9 @@ void _gsdl_types_init() {
 		instance_init: NULL,
 		value_table: NULL,
 	};
-	const GTypeFundamentalInfo finfo = { G_TYPE_FLAG_DERIVABLE, };                                                  \
+	const GTypeFundamentalInfo finfo = { G_TYPE_FLAG_DERIVABLE, };
 
+	REGISTER_POINTER_VALUE(binary, BINARY);
 	REGISTER_POINTER_VALUE(decimal, DECIMAL);
 	REGISTER_POINTER_VALUE(date, DATE);
 	REGISTER_POINTER_VALUE(datetime, DATETIME);

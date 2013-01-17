@@ -449,6 +449,15 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 			g_value_set_string(value, token->val);
 			break;
 
+		case T_BINARY:
+			g_value_init(value, GSDL_TYPE_BINARY);
+
+			gsize len;
+			guchar *data = g_base64_decode(token->val, &len);
+			gsdl_gvalue_take_binary(value, g_byte_array_new_take(data, len));
+
+			break;
+
 		default:
 			g_return_val_if_reached(false);
 	}

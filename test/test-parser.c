@@ -163,6 +163,16 @@ void test_parser_value_timespan() {
 	g_assert(success);
 }
 
+void test_parser_value_binary() {
+	GString *result = g_string_new("");
+	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);
+
+	g_assert(context != NULL);
+	bool success = gsdl_parser_context_parse_string(context, "tag [YmluYXJ5] [cGFkZGVkI}GJpbmFyeQ==] [ZW1iZWRkZWQAbnVsbHM=]");
+	g_assert_cmpstr(result->str, ==, "(tag,gsdlbinary:binary,gsdlbinary:padded binary,gsdlbinary:embedded\\\\0nulls\ntag)\n");
+	g_assert(success);
+}
+
 #define TEST(name) g_test_add_func("/parser/"#name, test_parser_##name)
 
 int main(int argc, char **argv) {
@@ -177,6 +187,7 @@ int main(int argc, char **argv) {
 	TEST(value_strings);
 	TEST(value_datetime);
 	TEST(value_timespan);
+	TEST(value_binary);
 
 	return g_test_run();
 }
