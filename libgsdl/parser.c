@@ -466,14 +466,25 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 	return true;
 }
 
+static void _str_ptr_unset(gchar **value) {
+	g_free(*value);
+}
+
+static void _value_ptr_unset(GValue **value) {
+	g_value_unset(*value);
+}
+
 static bool _parse_tag(GSDLParserContext *self) {
 	GSDLToken *first, *token;
 	char *name = g_strdup("contents");
 
 	GArray *values = g_array_new(TRUE, FALSE, sizeof(GValue*));
-
 	GArray *attr_names = g_array_new(TRUE, FALSE, sizeof(gchar*));
 	GArray *attr_values = g_array_new(TRUE, FALSE, sizeof(GValue*));
+
+	g_array_set_clear_func(values, (GDestroyNotify) _value_ptr_unset);
+	g_array_set_clear_func(attr_names, (GDestroyNotify) _str_ptr_unset);
+	g_array_set_clear_func(attr_values, (GDestroyNotify) _value_ptr_unset);
 
 	REQUIRE(_peek(self, &first));
 
@@ -517,6 +528,10 @@ static bool _parse_tag(GSDLParserContext *self) {
 		g_array_append_val(attr_names, contents);
 		gsdl_token_free(token);
 
+		REQUIRE(_read(self, &token));
+		EXPECT('=');
+		gsdl_token_free(token);
+
 		GValue *value = g_new0(GValue, 1);
 		REQUIRE(_parse_value(self, value));
 		g_array_append_val(attr_values, value);
@@ -537,6 +552,10 @@ static bool _parse_tag(GSDLParserContext *self) {
 		MAYBE_CALLBACK(self->parser->error, self, err, self->user_data);
 		return false;
 	}
+
+	g_array_free(values, TRUE);
+	g_array_free(attr_names, TRUE);
+	g_array_free(attr_values, TRUE);
 
 	REQUIRE(_peek(self, &token));
 

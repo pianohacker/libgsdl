@@ -27,7 +27,10 @@ void start_tag_appender(
 	for (; *attr_names; attr_names++, attr_values++) {
 		g_string_append_c(repr, ',');
 		g_string_append(repr, *attr_names);
+		g_string_append_c(repr, '=');
 		g_string_append(repr, G_VALUE_TYPE_NAME(*attr_values));
+		g_string_append_c(repr, ':');
+		g_string_append(repr, g_strdup_value_contents(*attr_values));
 	}
 
 	g_string_append_c(repr, '\n');
@@ -173,6 +176,16 @@ void test_parser_value_binary() {
 	g_assert(success);
 }
 
+void test_parser_attr_full() {
+	GString *result = g_string_new("");
+	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);
+
+	g_assert(context != NULL);
+	bool success = gsdl_parser_context_parse_string(context, "tag [ZW1iZWRkZWQAbnVsbHM=] int=58 long=-32L double=52.3 float=25.3f big=-8923.33bd bool=true nil=null str=\"abc\" date=2042/4/20 datetime=2012/2/5 5:30 timespan=42:00:52 timespan2=20:42:32.324 bin=[YmluYXJ5]");
+	g_assert_cmpstr(result->str, ==, "(tag,gsdlbinary:embedded\\\\0nulls,int=gint:58,long=gint64:-32,double=gdouble:52.300000,float=gfloat:25.299999,big=gsdldecimal:-8923.33,bool=gboolean:TRUE,nil=gpointer:NULL,str=gchararray:\"abc\",date=gsdldate:2042-04-20,datetime=gsdldatetime:2012-02-05T05:30:00-0700,timespan=gsdltimespan:151252000000,timespan2=gsdltimespan:74552324000,bin=gsdlbinary:binary\ntag)\n");
+	g_assert(success);
+}
+
 #define TEST(name) g_test_add_func("/parser/"#name, test_parser_##name)
 
 int main(int argc, char **argv) {
@@ -188,6 +201,7 @@ int main(int argc, char **argv) {
 	TEST(value_datetime);
 	TEST(value_timespan);
 	TEST(value_binary);
+	TEST(attr_full);
 
 	return g_test_run();
 }
