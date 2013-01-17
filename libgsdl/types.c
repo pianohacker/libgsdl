@@ -9,43 +9,43 @@
 // Large files of this are liberally copied from glib's gvaluetypes.c.
 // Many thanks to their original authors.
 
-#define DEF_GET_SET(suffix, upper_suffix, dup_function, type)            \
-                                                                         \
-void gsdl_gvalue_set_##suffix(GValue *value, const type *src) {          \
-	gpointer new_val;                                                    \
-                                                                         \
-	g_return_if_fail(GSDL_GVALUE_HOLDS_##upper_suffix(value));           \
-                                                                         \
-	new_val = dup_function(src);                                         \
-                                                                         \
-	if (value->data[1].v_uint & G_VALUE_NOCOPY_CONTENTS) {               \
-		value->data[1].v_uint = 0;                                       \
-	} else {                                                             \
-		g_free(value->data[0].v_pointer);                                \
-	}                                                                    \
-                                                                         \
-	value->data[0].v_pointer = new_val;                                  \
-}                                                                        \
-                                                                         \
-void gsdl_gvalue_take_##suffix(GValue *value, type *src) {               \
-	g_return_if_fail(GSDL_GVALUE_HOLDS_##upper_suffix(value));           \
-                                                                         \
-	if (value->data[1].v_uint & G_VALUE_NOCOPY_CONTENTS) {               \
-		value->data[1].v_uint = 0;                                       \
-	} else {                                                             \
-		g_free(value->data[0].v_pointer);                                \
-	}                                                                    \
-                                                                         \
-	value->data[0].v_pointer = src;                                      \
-}                                                                        \
-                                                                         \
-const type* gsdl_gvalue_get_##suffix(const GValue *value) {              \
-	g_return_val_if_fail(GSDL_GVALUE_HOLDS_##upper_suffix(value), NULL); \
-                                                                         \
-	return (type*) value->data[0].v_pointer;                             \
+#define DEF_GET_SET(suffix, upper_suffix, dup_function, free_function, type) \
+                                                                             \
+void gsdl_gvalue_set_##suffix(GValue *value, const type *src) {              \
+	gpointer new_val;                                                        \
+                                                                             \
+	g_return_if_fail(GSDL_GVALUE_HOLDS_##upper_suffix(value));               \
+                                                                             \
+	new_val = dup_function(src);                                             \
+                                                                             \
+	if (value->data[1].v_uint & G_VALUE_NOCOPY_CONTENTS) {                   \
+		value->data[1].v_uint = 0;                                           \
+	} else {                                                                 \
+		free_function(value->data[0].v_pointer);                             \
+	}                                                                        \
+                                                                             \
+	value->data[0].v_pointer = new_val;                                      \
+}                                                                            \
+                                                                             \
+void gsdl_gvalue_take_##suffix(GValue *value, type *src) {                   \
+	g_return_if_fail(GSDL_GVALUE_HOLDS_##upper_suffix(value));               \
+                                                                             \
+	if (value->data[1].v_uint & G_VALUE_NOCOPY_CONTENTS) {                   \
+		value->data[1].v_uint = 0;                                           \
+	} else {                                                                 \
+		free_function(value->data[0].v_pointer);                             \
+	}                                                                        \
+                                                                             \
+	value->data[0].v_pointer = src;                                          \
+}                                                                            \
+                                                                             \
+const type* gsdl_gvalue_get_##suffix(const GValue *value) {                  \
+	g_return_val_if_fail(GSDL_GVALUE_HOLDS_##upper_suffix(value), NULL);     \
+                                                                             \
+	return (type*) value->data[0].v_pointer;                                 \
 }
 
-#define DEF_POINTER_VALUE(suffix, upper_suffix, dup_function)                                       \
+#define DEF_POINTER_VALUE(suffix, upper_suffix, dup_function, free_function)                        \
 GType GSDL_TYPE_##upper_suffix;                                                                     \
                                                                                                     \
 static gchar* _value_collect_##suffix(                                                              \
@@ -65,6 +65,12 @@ static gchar* _value_collect_##suffix(                                          
 	}                                                                                               \
                                                                                                     \
 	return NULL;                                                                                    \
+}                                                                                                   \
+                                                                                                    \
+static void _value_free_##suffix(GValue *value) {                                                   \
+	if (!(value->data[1].v_uint & G_VALUE_NOCOPY_CONTENTS)) {                                       \
+		free_function(value->data[0].v_pointer);                                                    \
+	}                                                                                               \
 }                                                                                                   \
                                                                                                     \
 static void _value_copy_##suffix(const GValue *src_value, GValue *dest_value) {                     \
@@ -98,7 +104,7 @@ static gchar* _value_lcopy_##suffix(                                            
 #define REGISTER_POINTER_VALUE(suffix, upper_suffix)                                                                \
 	static const GTypeValueTable suffix##_value_table = {                                                           \
 		value_init: _value_init_pointer,                                                                            \
-		value_free: _value_free_pointer,                                                                            \
+		value_free: _value_free_##suffix,                                                                           \
 		value_copy: _value_copy_##suffix,                                                                           \
 		value_peek_pointer: _value_peek_pointer,                                                                    \
 		collect_format: "p",                                                                                        \
@@ -122,14 +128,22 @@ static inline gpointer _g_date_dup(gconstpointer src) {
 	return g_memdup(src, sizeof(GDate));
 }
 
-static inline gpointer _g_datetime_dup(gconstpointer src) {
+static inline gpointer _g_date_time_dup(gconstpointer src) {
 	return g_date_time_add((GDateTime*) src, 0);
 }
 
-DEF_GET_SET(binary, BINARY, _g_byte_array_dup, GByteArray)
-DEF_GET_SET(decimal, DECIMAL, g_strdup, gchar)
-DEF_GET_SET(date, DATE, _g_date_dup, GDate)
-DEF_GET_SET(datetime, DATETIME, _g_datetime_dup, GDateTime)
+static inline void _g_byte_array_free(gconstpointer src) {
+	if (src) g_byte_array_unref((GByteArray*) src);
+}
+
+static inline void _g_date_time_free(gconstpointer src) {
+	if (src) g_date_time_unref((GDateTime*) src);
+}
+
+DEF_GET_SET(binary, BINARY, _g_byte_array_dup, _g_byte_array_free, GByteArray)
+DEF_GET_SET(decimal, DECIMAL, g_strdup, g_free, gchar)
+DEF_GET_SET(date, DATE, _g_date_dup, g_free, GDate)
+DEF_GET_SET(datetime, DATETIME, _g_date_time_dup, _g_date_time_free, GDateTime)
 
 void gsdl_gvalue_set_timespan(GValue *value, const GTimeSpan src) {
 	g_return_if_fail(GSDL_GVALUE_HOLDS_TIMESPAN(value));
@@ -143,20 +157,27 @@ GTimeSpan gsdl_gvalue_get_timespan(const GValue *value) {
 	return value->data[0].v_int64;
 }
 
+void gsdl_gvalue_set_unichar(GValue *value, const gunichar src) {
+	g_return_if_fail(GSDL_GVALUE_HOLDS_UNICHAR(value));
+
+	value->data[0].v_int64 = src;
+}
+
+gunichar gsdl_gvalue_get_unichar(const GValue *value) {
+	g_return_val_if_fail(GSDL_GVALUE_HOLDS_UNICHAR(value), 0);
+
+	return value->data[0].v_int64;
+}
+
 GType GSDL_TYPE_TIMESPAN;
-DEF_POINTER_VALUE(binary, BINARY, _g_byte_array_dup);
-DEF_POINTER_VALUE(decimal, DECIMAL, g_strdup);
-DEF_POINTER_VALUE(date, DATE, _g_date_dup);
-DEF_POINTER_VALUE(datetime, DATETIME, _g_datetime_dup);
+GType GSDL_TYPE_UNICHAR;
+DEF_POINTER_VALUE(binary, BINARY, _g_byte_array_dup, _g_byte_array_free);
+DEF_POINTER_VALUE(decimal, DECIMAL, g_strdup, g_free);
+DEF_POINTER_VALUE(date, DATE, _g_date_dup, g_free);
+DEF_POINTER_VALUE(datetime, DATETIME, _g_date_time_dup, _g_date_time_free);
 
 static void _value_init_pointer(GValue *value) {
 	value->data[0].v_pointer = NULL;
-}
-
-static void _value_free_pointer(GValue *value) {
-	if (!(value->data[1].v_uint & G_VALUE_NOCOPY_CONTENTS)) {
-		g_free(value->data[0].v_pointer);
-	}
 }
 
 static gpointer _value_peek_pointer(const GValue *value) {
@@ -214,14 +235,14 @@ static void _value_transform_datetime_string(const GValue *src_value, GValue *de
 	}
 }
 
-static void _value_init_timespan(GValue *value) {
+static void _value_init_int64(GValue *value) {
 }
 
-static void _value_copy_timespan(const GValue *src_value, GValue *dest_value) {
+static void _value_copy_int64(const GValue *src_value, GValue *dest_value) {
 	dest_value->data[0].v_int64 = src_value->data[0].v_int64;
 }
 
-static gchar* _value_collect_timespan(
+static gchar* _value_collect_int64(
 		GValue *value,
 		guint n_collect_values,
 		GTypeCValue *collect_values,
@@ -233,7 +254,7 @@ static gchar* _value_collect_timespan(
 	return NULL;
 }
 
-static gchar* _value_lcopy_timespan(
+static gchar* _value_lcopy_int64(
 		const GValue *value,
 		guint n_collect_values,
 		GTypeCValue *collect_values,
@@ -253,6 +274,13 @@ static gchar* _value_lcopy_timespan(
 
 static void _value_transform_timespan_string(const GValue *src_value, GValue *dest_value) {
 	dest_value->data[0].v_pointer = g_strdup_printf("%"G_GINT64_FORMAT, src_value->data[0].v_int64);
+}
+
+static void _value_transform_unichar_string(const GValue *src_value, GValue *dest_value) {
+	char *value = g_malloc(7);
+	value[g_unichar_to_utf8(src_value->data[0].v_int64, value)] = 0;
+
+	dest_value->data[0].v_pointer = value;
 }
 
 void _gsdl_types_init() {
@@ -277,20 +305,36 @@ void _gsdl_types_init() {
 	REGISTER_POINTER_VALUE(datetime, DATETIME);
 
 	static const GTypeValueTable timespan_value_table = {
-		value_init: _value_init_timespan,
+		value_init: _value_init_int64,
 		value_free: NULL,
-		value_copy: _value_copy_timespan,
+		value_copy: _value_copy_int64,
 		value_peek_pointer: NULL,
 		collect_format: "q",
-		collect_value: _value_collect_timespan,
+		collect_value: _value_collect_int64,
 		lcopy_format: "p",
-		lcopy_value: _value_lcopy_timespan,
+		lcopy_value: _value_lcopy_int64,
 	};
 
 	info.value_table = &timespan_value_table;
 	GSDL_TYPE_TIMESPAN = g_type_fundamental_next();
 	g_type_register_fundamental(GSDL_TYPE_TIMESPAN, g_intern_static_string("gsdltimespan"), &info, &finfo, 0);
 	g_value_register_transform_func(GSDL_TYPE_TIMESPAN, G_TYPE_STRING, _value_transform_timespan_string);
+
+	static const GTypeValueTable unichar_value_table = {
+		value_init: _value_init_int64,
+		value_free: NULL,
+		value_copy: _value_copy_int64,
+		value_peek_pointer: NULL,
+		collect_format: "q",
+		collect_value: _value_collect_int64,
+		lcopy_format: "p",
+		lcopy_value: _value_lcopy_int64,
+	};
+
+	info.value_table = &unichar_value_table;
+	GSDL_TYPE_UNICHAR = g_type_fundamental_next();
+	g_type_register_fundamental(GSDL_TYPE_UNICHAR, g_intern_static_string("gsdlunichar"), &info, &finfo, 0);
+	g_value_register_transform_func(GSDL_TYPE_UNICHAR, G_TYPE_STRING, _value_transform_unichar_string);
 
 	init_done = true;
 }

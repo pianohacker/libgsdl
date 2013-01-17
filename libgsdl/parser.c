@@ -449,6 +449,11 @@ static bool _parse_value(GSDLParserContext *self, GValue *value) {
 			g_value_set_string(value, token->val);
 			break;
 
+		case T_CHAR:
+			g_value_init(value, GSDL_TYPE_UNICHAR);
+			gsdl_gvalue_set_unichar(value, g_utf8_get_char(token->val));
+			break;
+
 		case T_BINARY:
 			g_value_init(value, GSDL_TYPE_BINARY);
 

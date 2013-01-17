@@ -176,6 +176,16 @@ void test_parser_value_binary() {
 	g_assert(success);
 }
 
+void test_parser_value_char() {
+	GString *result = g_string_new("");
+	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);
+
+	g_assert(context != NULL);
+	bool success = gsdl_parser_context_parse_string(context, "tag '\xe2\x80\x93'");
+	g_assert_cmpstr(result->str, ==, "(tag,gsdlunichar:\\342\\200\\223\ntag)\n");
+	g_assert(success);
+}
+
 void test_parser_attr_full() {
 	GString *result = g_string_new("");
 	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);
@@ -201,6 +211,7 @@ int main(int argc, char **argv) {
 	TEST(value_datetime);
 	TEST(value_timespan);
 	TEST(value_binary);
+	TEST(value_char);
 	TEST(attr_full);
 
 	return g_test_run();

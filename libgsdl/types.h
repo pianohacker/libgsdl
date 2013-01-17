@@ -18,10 +18,15 @@ extern GType GSDL_TYPE_TIMESPAN;
 void gsdl_gvalue_set_timespan(GValue *value, const GTimeSpan src);
 GTimeSpan gsdl_gvalue_get_timespan(const GValue *value);
 
+extern GType GSDL_TYPE_UNICHAR;
+void gsdl_gvalue_set_unichar(GValue *value, const gunichar src);
+gunichar gsdl_gvalue_get_unichar(const GValue *value);
+
 #define GSDL_GVALUE_HOLDS_BINARY(value) (G_TYPE_CHECK_VALUE_TYPE((value), GSDL_TYPE_BINARY))
 #define GSDL_GVALUE_HOLDS_DECIMAL(value) (G_TYPE_CHECK_VALUE_TYPE((value), GSDL_TYPE_DECIMAL))
 #define GSDL_GVALUE_HOLDS_DATE(value) (G_TYPE_CHECK_VALUE_TYPE((value), GSDL_TYPE_DATE))
 #define GSDL_GVALUE_HOLDS_DATETIME(value) (G_TYPE_CHECK_VALUE_TYPE((value), GSDL_TYPE_DATETIME))
 #define GSDL_GVALUE_HOLDS_TIMESPAN(value) (G_TYPE_CHECK_VALUE_TYPE((value), GSDL_TYPE_TIMESPAN))
+#define GSDL_GVALUE_HOLDS_UNICHAR(value) (G_TYPE_CHECK_VALUE_TYPE((value), GSDL_TYPE_UNICHAR))
 
 #endif
