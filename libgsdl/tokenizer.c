@@ -424,6 +424,23 @@ bool gsdl_tokenizer_next(GSDLTokenizer *self, GSDLToken **result, GError **err) 
 		while (_peek(self, &c, err) && !(c == '\n' || c == EOF)) _consume(self);
 
 		goto retry;
+	} else if (c == '/' && _peek(self, &nc, err) && nc == '*') {
+		while (_read(self, &c, err)) {
+			if (c == EOF) {
+				_set_error(err,
+					self,
+					GSDL_SYNTAX_ERROR_UNEXPECTED_CHAR,
+					"Unterminated comment"
+				);
+
+				return false;
+			} else if (c == '*' && _peek(self, &c, err) && c == '/') {
+				_consume(self);
+				break;
+			}
+		}
+
+		goto retry;
 	} else if (c < 256 && strchr("-:;./{}=\n", (char) c)) {
 		*result = _maketoken(c, line, col);
 		return true;

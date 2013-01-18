@@ -33,7 +33,7 @@ void test_tokenizer_string_comments() {
 	ASSERT_TOKEN(T_EOF);
 	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
 
-	tokenizer = gsdl_tokenizer_new_from_string("2/3 // Comment\ntag # Comentario\n52 - 242 -- Comment on the comment", &error);
+	tokenizer = gsdl_tokenizer_new_from_string("2/3 // Comment\ntag # Comentario\n52 - 242 -- Comment on the comment\nabc /* 234\n235 * */ 5", &error);
 
 	g_assert_no_error(error);
 	g_assert(tokenizer != NULL);
@@ -46,6 +46,9 @@ void test_tokenizer_string_comments() {
 	ASSERT_TOKEN_VAL(T_NUMBER, "52");
 	ASSERT_TOKEN('-');
 	ASSERT_TOKEN_VAL(T_NUMBER, "242");
+	ASSERT_TOKEN('\n');
+	ASSERT_TOKEN_VAL(T_IDENTIFIER, "abc");
+	ASSERT_TOKEN_VAL(T_NUMBER, "5");
 	ASSERT_TOKEN(T_EOF);
 	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
 }
