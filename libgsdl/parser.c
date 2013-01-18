@@ -252,6 +252,61 @@ static bool _parse_number(GSDLParserContext *self, GValue *value, GSDLToken *tok
 	return true;
 }
 
+static bool _parse_timezone(GSDLParserContext *self, GTimeZone **timezone, GSDLToken *first) {
+	GString *identifier = g_string_new("");
+	GSDLToken *token;
+
+	if (strcmp(first->val, "GMT") == 0) {
+		REQUIRE(_read(self, &token));
+		EXPECT('+', '-');
+		g_string_append_c(identifier, (gchar) token->type);
+		gsdl_token_free(token);
+
+		REQUIRE(_read(self, &token));
+		EXPECT(T_NUMBER, T_TIME_PART);
+
+		if (token->type == T_NUMBER) {
+			int val = atoi(token->val);
+			g_string_append_printf(identifier, "%02d%02d", val / 100 % 100, val % 100);
+			gsdl_token_free(token);
+		} else {
+			g_string_append_printf(identifier, "%02d", atoi(token->val));
+			gsdl_token_free(token);
+
+			REQUIRE(_read(self, &token));
+			EXPECT(T_NUMBER);
+			g_string_append_printf(identifier, "%02d", atoi(token->val));
+			gsdl_token_free(token);
+		}
+	} else {
+		g_string_append(identifier, first->val);
+
+		REQUIRE(_peek(self, &token));
+
+		if (token->type == '/') {
+			_consume(self);
+			g_string_append_c(identifier, '/');
+			gsdl_token_free(token);
+
+			REQUIRE(_read(self, &token));
+			EXPECT(T_IDENTIFIER);
+			g_string_append(identifier, token->val);
+			gsdl_token_free(token);
+		}
+	}
+
+	*timezone = g_time_zone_new(identifier->str);
+
+	if (!*timezone) {
+		_error(self, first, GSDL_SYNTAX_ERROR_BAD_LITERAL, g_strdup_printf("Unknown timezone in date/time: %s", identifier->str));
+	}
+
+	g_string_free(identifier, TRUE);
+	gsdl_token_free(first);
+
+	return true;
+}
+
 static bool _parse_datetime(GSDLParserContext *self, GValue *value, GSDLToken *token) {
 	GSDLToken *next, *first;
 	double part_nums[8];
@@ -321,6 +376,10 @@ static bool _parse_datetime(GSDLParserContext *self, GValue *value, GSDLToken *t
 		if (next->type == '-') {
 			_consume(self);
 			gsdl_token_free(next);
+			
+			REQUIRE(_read(self, &token));
+			EXPECT(T_IDENTIFIER);
+			REQUIRE(_parse_timezone(self, &timezone, token));
 		} else {
 			timezone = g_time_zone_new_local();
 		}

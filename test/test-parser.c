@@ -151,8 +151,8 @@ void test_parser_value_datetime() {
 	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);
 
 	g_assert(context != NULL);
-	bool success = gsdl_parser_context_parse_string(context, "tag 2042/4/20 2012/2/5 5:30 \"c\" 1924/11/4 19:34:5 \"b\" 2001/02/23 4:00:23.52");
-	g_assert_cmpstr(result->str, ==, "(tag,gsdldate:2042-04-20,gsdldatetime:2012-02-05T05:30:00-0700,gchararray:\"c\",gsdldatetime:1924-11-04T19:34:05-0700,gchararray:\"b\",gsdldatetime:2001-02-23T04:00:23.520-0700\ntag)\n");
+	bool success = gsdl_parser_context_parse_string(context, "tag 2042/4/20 2012/2/5 5:30 \"c\" 1924/11/4 19:34:5 \"b\" 2001/02/23 4:00:23.52 2040/2/3 4:00-America/Denver 502/10/10 12:00:00-GMT+4:15");
+	g_assert_cmpstr(result->str, ==, "(tag,gsdldate:2042-04-20,gsdldatetime:2012-02-05T05:30:00-0700,gchararray:\"c\",gsdldatetime:1924-11-04T19:34:05-0700,gchararray:\"b\",gsdldatetime:2001-02-23T04:00:23.520-0700,gsdldatetime:2040-02-03T04:00:00-0700,gsdldatetime:502-10-10T12:00:00+0415\ntag)\n");
 	g_assert(success);
 }
 
