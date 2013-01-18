@@ -540,7 +540,7 @@ static void _value_ptr_unset(GValue **value) {
 
 static bool _parse_tag(GSDLParserContext *self) {
 	GSDLToken *first, *token;
-	char *name = g_strdup("contents");
+	char *name = g_strdup("content");
 
 	GArray *values = g_array_new(TRUE, FALSE, sizeof(GValue*));
 	GArray *attr_names = g_array_new(TRUE, FALSE, sizeof(gchar*));
@@ -574,7 +574,7 @@ static bool _parse_tag(GSDLParserContext *self) {
 	} else {
 		token = first;
 
-		EXPECT(T_IDENTIFIER, T_NUMBER, T_LONGINTEGER, T_DAYS, T_BOOLEAN, T_NULL, T_STRING, T_CHAR, T_BINARY);
+		EXPECT(T_IDENTIFIER, T_NUMBER, T_TIME_PART, T_DATE_PART, T_LONGINTEGER, T_DAYS, T_BOOLEAN, T_NULL, T_STRING, T_CHAR, T_BINARY);
 	}
 
 	bool peek_success = true;
@@ -695,7 +695,7 @@ bool gsdl_parser_context_parse_file(GSDLParserContext *self, const char *filenam
 		return false;
 	}
 
-	return _parse_tag(self);
+	return _parse(self);
 }
 
 bool gsdl_parser_context_parse_string(GSDLParserContext *self, const char *str) {

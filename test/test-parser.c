@@ -1,6 +1,7 @@
 #include <glib.h>
 #include <parser.h>
 #include <syntax.h>
+#include <unistd.h>
 
 void start_tag_appender(
 		GSDLParserContext *context,
@@ -191,8 +192,28 @@ void test_parser_attr_full() {
 	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);
 
 	g_assert(context != NULL);
-	bool success = gsdl_parser_context_parse_string(context, "tag [ZW1iZWRkZWQAbnVsbHM=] int=58 long=-32L double=52.3 float=25.3f big=-8923.33bd bool=true nil=null str=\"abc\" date=2042/4/20 datetime=2012/2/5 5:30 timespan=42:00:52 timespan2=20:42:32.324 bin=[YmluYXJ5]");
-	g_assert_cmpstr(result->str, ==, "(tag,gsdlbinary:embedded\\\\0nulls,int=gint:58,long=gint64:-32,double=gdouble:52.300000,float=gfloat:25.299999,big=gsdldecimal:-8923.33,bool=gboolean:TRUE,nil=gpointer:NULL,str=gchararray:\"abc\",date=gsdldate:2042-04-20,datetime=gsdldatetime:2012-02-05T05:30:00-0700,timespan=gsdltimespan:151252000000,timespan2=gsdltimespan:74552324000,bin=gsdlbinary:binary\ntag)\n");
+	bool success = gsdl_parser_context_parse_string(context, "[ZW1iZWRkZWQAbnVsbHM=] int=58 long=-32L double=52.3 float=25.3f big=-8923.33bd bool=true nil=null str=\"abc\" date=2042/4/20 datetime=2012/2/5 5:30 timespan=42:00:52 timespan2=20:42:32.324 bin=[YmluYXJ5]");
+	g_assert_cmpstr(result->str, ==, "(content,gsdlbinary:embedded\\\\0nulls,int=gint:58,long=gint64:-32,double=gdouble:52.300000,float=gfloat:25.299999,big=gsdldecimal:-8923.33,bool=gboolean:TRUE,nil=gpointer:NULL,str=gchararray:\"abc\",date=gsdldate:2042-04-20,datetime=gsdldatetime:2012-02-05T05:30:00-0700,timespan=gsdltimespan:151252000000,timespan2=gsdltimespan:74552324000,bin=gsdlbinary:binary\ncontent)\n");
+	g_assert(success);
+}
+
+void test_parser_file_full() {
+	char *filename;
+	GIOChannel *channel = g_io_channel_unix_new(g_file_open_tmp("test-tokenizer.XXXXXX", &filename, NULL));
+	g_io_channel_write_unichar(channel, 0xe9, NULL);
+	g_io_channel_write_chars(channel, "toile \"strings have \\\"", -1, NULL, NULL);
+	g_io_channel_write_unichar(channel, 0x2032, NULL);
+	g_io_channel_write_chars(channel, "s\" '", -1, NULL, NULL);
+	g_io_channel_write_unichar(channel, 0x2013, NULL);
+	g_io_channel_write_chars(channel, "' 123 45L; 56.79f 1.2D\\\n3.4BD true\n2012/12/19 0d:00:01:03.123 [abcs21+==] null", -1, NULL, NULL);
+	g_io_channel_shutdown(channel, true, NULL);
+
+	GString *result = g_string_new("");
+	GSDLParserContext *context = gsdl_parser_context_new(&appender_parser, (gpointer) result);
+
+	g_assert(context != NULL);
+	bool success = gsdl_parser_context_parse_file(context, filename);
+	g_assert_cmpstr(result->str, ==, "(\xc3\xa9toile,gchararray:\"strings have \\\"\\342\\200\\262s\",gsdlunichar:\\342\\200\\223,gint:123,gint64:45\n\xc3\xa9toile)\n(content,gfloat:56.790001,gdouble:1.200000,gsdldecimal:3.4,gboolean:TRUE\ncontent)\n(content,gsdldate:2012-12-19,gsdltimespan:63123000,gsdlbinary:i\\xb7,\\xdb_,gpointer:NULL\ncontent)");
 	g_assert(success);
 }
 
@@ -213,6 +234,7 @@ int main(int argc, char **argv) {
 	TEST(value_binary);
 	TEST(value_char);
 	TEST(attr_full);
+	TEST(file_full);
 
 	return g_test_run();
 }
