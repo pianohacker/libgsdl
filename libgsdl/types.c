@@ -201,9 +201,9 @@ static void _value_transform_binary_string(const GValue *src_value, GValue *dest
 			*out++ = 'x';
 
 			int digit = *in >> 4;
-			*out++ = digit < 10 ? '0' + digit : 'a' + digit - 9;
+			*out++ = digit < 10 ? '0' + digit : 'a' + digit - 10;
 			digit = *in % 16;
-			*out++ = digit < 10 ? '0' + digit : 'a' + digit - 9;
+			*out++ = digit < 10 ? '0' + digit : 'a' + digit - 10;
 		} else {
 			*out++ = (gchar) *in;
 		}

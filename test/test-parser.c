@@ -213,7 +213,7 @@ void test_parser_file_full() {
 
 	g_assert(context != NULL);
 	bool success = gsdl_parser_context_parse_file(context, filename);
-	g_assert_cmpstr(result->str, ==, "(\xc3\xa9toile,gchararray:\"strings have \\\"\\342\\200\\262s\",gsdlunichar:\\342\\200\\223,gint:123,gint64:45\n\xc3\xa9toile)\n(content,gfloat:56.790001,gdouble:1.200000,gsdldecimal:3.4,gboolean:TRUE\ncontent)\n(content,gsdldate:2012-12-19,gsdltimespan:63123000,gsdlbinary:i\\xb7,\\xdb_,gpointer:NULL\ncontent)");
+	g_assert_cmpstr(result->str, ==, "(\xc3\xa9toile,gchararray:\"strings have \\\"\\342\\200\\262s\",gsdlunichar:\\342\\200\\223,gint:123,gint64:45\n\xc3\xa9toile)\n(content,gfloat:56.790001,gdouble:1.200000,gsdldecimal:3.4,gboolean:TRUE\ncontent)\n(content,gsdldate:2012-12-19,gsdltimespan:63123000,gsdlbinary:i\\\\xb7,\\\\xdb_,gpointer:NULL\ncontent)\n");
 	g_assert(success);
 }
 
