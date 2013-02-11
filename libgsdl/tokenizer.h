@@ -24,6 +24,26 @@
 #include <stdio.h>
 
 //> Types
+/**
+ * GSDLTokenType:
+ * @T_EOF: A virtual token at the end of the input.*
+ * @T_IDENTIFIER: An Unicode identifier, following the same rules as a Java identifier.
+ * @T_NUMBER: A sequence of ASCII digits.
+ * @T_LONGINTEGER: A number that was preceded by a . and followed by L or l.
+ * @T_FLOAT_END: A number that was preceded by a . and followed by F or f.
+ * @T_DOUBLE_END: A number that was preceded by a . and followed by D or d.
+ * @T_DECIMAL_END: A number that was preceded by a . and followed by BD or bd.
+ * @T_DATE_PART: A number that was followed by a /.
+ * @T_TIME_PART: A number that was followed by a :.
+ * @T_DAYS: A number that was followed by D: or d:.
+ * @T_BOOLEAN: One of the keywords "true", "false", "on", or "off".
+ * @T_NULL: The keyword "null".*
+ * @T_STRING: A string enclosed by "" or ``.
+ * @T_CHAR: A single UTF-8 character enclosed by ''.
+ * @T_BINARY: A base64 binary literal enclosed by [], with all invalid characters removed.
+ *
+ * * These token types have no value, and their #GSDLToken.val field is undefined.
+ */
 typedef enum {
 	T_EOF = EOF,
 	T_IDENTIFIER = 256,
@@ -42,6 +62,15 @@ typedef enum {
 	T_BINARY,
 } GSDLTokenType;
 
+/**
+ * GSDLToken:
+ * @type: The type of the token, either one of %GSDLTokenType or an ASCII character in the range
+ *        0-255.
+ * @line: The line where the token occurred.
+ * @col: The column where the token occurred.
+ * @val: Any string contents of the token, as a %NULL-terminated string. This is undefined for any
+ *       single-character token, and %T_EOF and %T_NULL.
+ */
 typedef struct {
 	GSDLTokenType type;
 
