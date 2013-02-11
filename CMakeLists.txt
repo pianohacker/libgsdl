@@ -14,6 +14,7 @@ add_library(gsdl SHARED
 include_directories(${GLIB_INCLUDE_DIRS})
 target_link_libraries(gsdl m ${GLIB_LIBRARIES})
 
+#> Testing
 enable_testing()
 file(GLOB TESTS test/test-*.c)
 include_directories(libgsdl ${GLIB_INCLUDE_DIRS})
@@ -24,3 +25,16 @@ foreach(TESTFILE ${TESTS})
 	target_link_libraries(${TESTPROG} gsdl ${GLIB_LIBRARIES})
 	add_test(${TESTPROG} ${TESTPROG})
 endforeach(TESTFILE)
+
+#> Documentation
+add_custom_command(OUTPUT docs/reference/libgsdl-docs.xml
+	DEPENDS docs/reference/libgsdl-docs.sgml libgsdl/*.c libgsdl/*.h
+	COMMAND gtkdoc-scan --module=libgsdl --source-dir=../../libgsdl/ --output-dir=.
+	COMMAND gtkdoc-mkdb --sgml-mode --source-dir=../../libgsdl --output-format=xml --name-space=gsdl --main-sgml-file=libgsdl-docs.xml --module=libgsdl
+	WORKING_DIRECTORY docs/reference
+)
+add_custom_target(docs
+	COMMAND gtkdoc-mkhtml --path=../../../libgsdl/ libgsdl ../libgsdl-docs.sgml
+	DEPENDS docs/reference/libgsdl-docs.xml
+	WORKING_DIRECTORY docs/reference/html
+)

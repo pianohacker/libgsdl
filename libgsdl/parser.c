@@ -1,3 +1,29 @@
+/*
+ * Copyright (C) 2013 Jesse Weaver <pianohacker@gmail.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
+/**
+ * SECTION:gsdl-parser
+ * @short_description: Parser for SDL data into GLib types.
+ *
+ * This is a simple, SAX-like parser for SDL files. Its main advantage is that the values and
+ * attribute contents come through as pre-parsed GValues.
+ */
+
 #include <errno.h>
 #include <glib.h>
 #include <glib-object.h>
@@ -25,6 +51,15 @@ struct _GSDLParserContext {
 #define MAYBE_CALLBACK(callback, ...) if (callback) callback(__VA_ARGS__)
 #define REQUIRE(expr) if (!expr) return false;
 
+/**
+ * gsdl_parser_context_new:
+ * @parser: A set of parsing callbacks.
+ * @user_data: An optional pointer to data to be passed to callbacks. (allow-none)
+ *
+ * See #GSDLParser for information on what each callback does.
+ *
+ * Returns: a new #GSDLParserContext.
+ */
 GSDLParserContext* gsdl_parser_context_new(GSDLParser *parser, gpointer user_data) {
 	GSDLParserContext *self = g_new0(GSDLParserContext, 1);
 
@@ -34,6 +69,14 @@ GSDLParserContext* gsdl_parser_context_new(GSDLParser *parser, gpointer user_dat
 	return self;
 }
 
+/**
+ * gsdl_parser_context_push:
+ * @self: A valid #GSDLParserContext.
+ * @parser: A new set of parser callbacks.
+ * @user_data: A new, optional piece of data for these callbacks.
+ *
+ * Changes the active set of parsing callbacks. The old set can be restored with gsdl_parser_context_pop().
+ */
 void gsdl_parser_context_push(GSDLParserContext *self, GSDLParser *parser, gpointer user_data) {
 	self->parser_stack = g_slist_prepend(self->parser_stack, self->parser);
 	self->data_stack = g_slist_prepend(self->data_stack, self->user_data);
@@ -42,6 +85,14 @@ void gsdl_parser_context_push(GSDLParserContext *self, GSDLParser *parser, gpoin
 	self->user_data = user_data;
 }
 
+/**
+ * gsdl_parser_context_pop:
+ * @self: A valid #GSDLParserContext.
+ *
+ * Restores the old set of parsing callbacks.
+ *
+ * Returns: the %user_data from the removed set of callbacks.
+ */
 gpointer gsdl_parser_context_pop(GSDLParserContext *self) {
 	g_assert(self->parser_stack != NULL && self->data_stack != NULL);
 
@@ -686,6 +737,13 @@ static bool _parse(GSDLParserContext *self) {
 	return true;
 }
 
+/**
+ * gsdl_parser_context_parse_file:
+ * @self: A valid #GSDLParserContext.
+ * @filename: Path to an SDL file to parse.
+ *
+ * Returns: whether the parse succeeded.
+ */
 bool gsdl_parser_context_parse_file(GSDLParserContext *self, const char *filename) {
 	GError *err = NULL;
 	self->tokenizer = gsdl_tokenizer_new(filename, &err);
@@ -698,6 +756,14 @@ bool gsdl_parser_context_parse_file(GSDLParserContext *self, const char *filenam
 	return _parse(self);
 }
 
+
+/**
+ * gsdl_parser_context_parse_string:
+ * @self: A valid #GSDLParserContext.
+ * @str: A UTF-8 encoded string to parse.
+ *
+ * Returns: whether the parse succeeded.
+ */
 bool gsdl_parser_context_parse_string(GSDLParserContext *self, const char *str) {
 	GError *err = NULL;
 	self->tokenizer = gsdl_tokenizer_new_from_string(str, &err);

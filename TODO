@@ -1,0 +1,6 @@
+  * Utility functions for extracting values, like g_markup_collect_attributes
+  * Namespace support
+  * Installation support
+  * Examples
+  * Gtk-Doc documentation
+  * GObjectify parser and add introspection annotations

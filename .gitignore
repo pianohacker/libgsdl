@@ -1,2 +1,9 @@
 build/*
+CMakeCache.txt
+CMakeFiles/*
+CTestTestfile.cmake
+cmake_install.cmake
+docs/reference/*
+docs/*.stamp
+Makefile
 .vimrc

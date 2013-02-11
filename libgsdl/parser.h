@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2013 Jesse Weaver <pianohacker@gmail.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
 #ifndef __PARSER_H__
 #define __PARSER_H__
 
@@ -5,7 +23,26 @@
 #include <glib-object.h>
 #include <stdbool.h>
 
+/**
+ * GSDLParserContext:
+ *
+ * All fields in GSDLParserContext are private.
+ */
 typedef struct _GSDLParserContext GSDLParserContext;
+
+/**
+ * GSDLParser:
+ * @start_tag: Callback to invoke when a new element is entered. This is called for empty tags. 
+ *             %values, %attr_names and %attr_values are %NULL-terminated arrays.
+ * @end_tag: Callback to invoke at the end of an element.
+ * @error: Callback to invoke when an error occurs. The error will be of type %G_CONVERT_ERROR,
+ *         %G_IO_CHANNEL_ERROR or %GSDL_SYNTAX_ERROR.
+ *
+ * A set of parsing callbacks.
+ *
+ * Note: the %start_tag and %end_tag callbacks can optionally set an error, which will cause the
+ * %error callback to be called with that error and parsing to immediately stop.
+ */
 
 typedef struct {
 	void (*start_tag)(
@@ -27,7 +64,7 @@ typedef struct {
 
 	void (*error)(
 		GSDLParserContext *context,
-		GError *errr,
+		GError *err,
 		gpointer user_data
 	);
 
