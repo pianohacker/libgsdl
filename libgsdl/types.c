@@ -301,6 +301,11 @@ static void _value_transform_unichar_string(const GValue *src_value, GValue *des
 	dest_value->data[0].v_pointer = value;
 }
 
+/*
+ * _gsdl_types_init:
+ *
+ * Adds the types defined above as fundamental types in the GObject type system.
+ */
 void _gsdl_types_init() {
 	static bool init_done = false;
 	if (init_done) return;
