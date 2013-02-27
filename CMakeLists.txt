@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(libgsdl)
+project(LIBGSDL)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLIB glib-2.0 gobject-2.0)
@@ -10,6 +10,10 @@ add_library(gsdl SHARED
 	libgsdl/syntax.c
 	libgsdl/tokenizer.c
 	libgsdl/types.c
+)
+set_target_properties(gsdl PROPERTIES
+	SOVERSION 1
+	VERSION 1.1
 )
 include_directories(${GLIB_INCLUDE_DIRS})
 target_link_libraries(gsdl m ${GLIB_LIBRARIES})
@@ -37,4 +41,14 @@ add_custom_target(docs
 	COMMAND gtkdoc-mkhtml --path=../../../libgsdl/ libgsdl ../libgsdl-docs.sgml
 	DEPENDS docs/reference/libgsdl-docs.xml
 	WORKING_DIRECTORY docs/reference/html
+)
+
+#> Installation
+install(TARGETS gsdl
+	LIBRARY DESTINATION lib
+)
+
+file(GLOB GSDL_HEADERS ${LIBGSDL_SOURCE_DIR}/libgsdl/*.h)
+install(FILES ${GSDL_HEADERS}
+	DESTINATION include/libgsdl
 )
