@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 project(LIBGSDL)
+set(LIBGSDL_VERSION 0.1.0)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLIB glib-2.0 gobject-2.0)
@@ -31,6 +32,10 @@ foreach(TESTFILE ${TESTS})
 endforeach(TESTFILE)
 
 #> Documentation
+set(LIBDIR ${CMAKE_INSTALL_PREFIX}/lib CACHE STRING "Library installation path")
+set(INCLUDEDIR ${CMAKE_INSTALL_PREFIX}/include CACHE STRING "Header file installation path")
+set(PKGCONFIGDIR ${CMAKE_INSTALL_PREFIX}/share/pkgconfig CACHE STRING "Pkg-config storage directory")
+
 add_custom_command(OUTPUT docs/reference/libgsdl-docs.xml
 	DEPENDS docs/reference/libgsdl-docs.sgml libgsdl/*.c libgsdl/*.h
 	COMMAND gtkdoc-scan --module=libgsdl --source-dir=../../libgsdl/ --output-dir=.
@@ -39,16 +44,21 @@ add_custom_command(OUTPUT docs/reference/libgsdl-docs.xml
 )
 add_custom_target(docs
 	COMMAND gtkdoc-mkhtml --path=../../../libgsdl/ libgsdl ../libgsdl-docs.sgml
-	DEPENDS docs/reference/libgsdl-docs.xml
+	DEPENDS docs/reference/libgsdl-docs.xm
 	WORKING_DIRECTORY docs/reference/html
 )
 
 #> Installation
 install(TARGETS gsdl
-	LIBRARY DESTINATION lib
+	LIBRARY DESTINATION ${LIBDIR}
 )
 
 file(GLOB GSDL_HEADERS ${LIBGSDL_SOURCE_DIR}/libgsdl/*.h)
 install(FILES ${GSDL_HEADERS}
-	DESTINATION include/libgsdl
+	DESTINATION ${INCLUDEDIR}/libgsdl
+)
+
+configure_file(gsdl-1.0.pc.cmake gsdl-1.0.pc @ONLY)
+install(FILES ${CMAKE_BINARY_DIR}/gsdl-1.0.pc
+	DESTINATION ${PKGCONFIGDIR}
 )
