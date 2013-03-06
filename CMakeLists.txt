@@ -55,7 +55,7 @@ install(TARGETS gsdl
 
 file(GLOB GSDL_HEADERS ${LIBGSDL_SOURCE_DIR}/libgsdl/*.h)
 install(FILES ${GSDL_HEADERS}
-	DESTINATION ${INCLUDEDIR}/libgsdl
+	DESTINATION ${INCLUDEDIR}/gsdl
 )
 
 configure_file(gsdl-1.0.pc.cmake gsdl-1.0.pc @ONLY)

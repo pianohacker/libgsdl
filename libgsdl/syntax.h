@@ -37,12 +37,21 @@
  *                                       the end of the file.
  * @GSDL_SYNTAX_ERROR_MALFORMED: Bad syntax; unexpected token in the input.
  * @GSDL_SYNTAX_ERROR_BAD_LITERAL: Bad formatting inside a literal, or out of range value.
+ * @GSDL_SYNTAX_ERROR_UNEXPECTED_TAG: Parser handler found an unexpected tag.
+ * @GSDL_SYNTAX_ERROR_MISSING_VALUE: Parser handler was missing a required attribute or value.
+ * @GSDL_SYNTAX_ERROR_BAD_TYPE: Parser handler found a value that could not be converted to the
+ *                              required type.
+ * 
+ * The last three errors are intended to be used by %GSDLParser parser callbacks.
  */
 typedef enum {
 	GSDL_SYNTAX_ERROR_UNEXPECTED_CHAR,
 	GSDL_SYNTAX_ERROR_MISSING_DELIMITER,
 	GSDL_SYNTAX_ERROR_MALFORMED,
 	GSDL_SYNTAX_ERROR_BAD_LITERAL,
+	GSDL_SYNTAX_ERROR_UNEXPECTED_TAG,
+	GSDL_SYNTAX_ERROR_MISSING_VALUE,
+	GSDL_SYNTAX_ERROR_BAD_TYPE,
 } GSDLSyntaxError;
 
 extern GQuark gsdl_syntax_error_quark();
