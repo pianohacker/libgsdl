@@ -70,6 +70,10 @@ typedef struct {
 
 } GSDLParser;
 
+#define GSDL_GTYPE_ANY 1 << (sizeof(GType) * 8 - 1)
+#define GSDL_GTYPE_END 0
+#define GSDL_GTYPE_OPTIONAL 1 << (sizeof(GType) * 8 - 2)
+
 extern GSDLParserContext* gsdl_parser_context_new(GSDLParser *parser, gpointer user_data);
 
 extern void gsdl_parser_context_push(GSDLParserContext *self, GSDLParser *parser, gpointer user_data);
@@ -77,5 +81,8 @@ extern gpointer gsdl_parser_context_pop(GSDLParserContext *self);
 
 extern bool gsdl_parser_context_parse_file(GSDLParserContext *self, const char *filename);
 extern bool gsdl_parser_context_parse_string(GSDLParserContext *self, const char *str);
+
+extern bool gsdl_parser_collect_values(const gchar *name, GValue* const *values, GError **err, GType first_type, GValue **first_value, ...);
+extern bool gsdl_parser_collect_attributes(const gchar *name, gchar* const *attr_names, GValue* const *attr_values, GError **err, GType first_type, const gchar *first_name, GValue **first_value, ...);
 
 #endif

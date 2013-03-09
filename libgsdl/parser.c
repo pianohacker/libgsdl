@@ -775,3 +775,117 @@ bool gsdl_parser_context_parse_string(GSDLParserContext *self, const char *str) 
 
 	return _parse(self);
 }
+
+static bool _copy_value(const gchar *tag_name, GType type, GValue *value, GValue **out_value, GError **err, const gchar *err_format, ...) {
+	bool check_type = !!(GSDL_GTYPE_ANY & type), optional = !!(GSDL_GTYPE_OPTIONAL & type);
+	type &= ~(GSDL_GTYPE_OPTIONAL | GSDL_GTYPE_ANY);
+
+	va_list args;
+	va_start(args, err_format);
+	char value_id[256];
+	vsprintf(value_id, err_format, args);
+	va_end(args);
+
+	if (value == NULL) {
+		if (optional) {
+			*out_value = NULL;
+			return true;
+		} else {
+			g_set_error(
+				err,
+				GSDL_SYNTAX_ERROR,
+				GSDL_SYNTAX_ERROR_MISSING_VALUE,
+				"Tag \"%s\" requires %s",
+				tag_name,
+				value_id
+			);
+
+			return false;
+		}
+	}
+
+	if (G_VALUE_TYPE(value) == type || !check_type) {
+		*out_value = g_new0(GValue, 1);
+		if (check_type) {
+			g_value_init(*out_value, type);
+		} else {
+			g_value_init(*out_value, G_VALUE_TYPE(value));
+		}
+		g_value_copy(*out_value, value);
+	} else {
+		if (g_value_type_transformable(G_VALUE_TYPE(value), type)) {
+			*out_value = g_new0(GValue, 1);
+			g_value_init(*out_value, type);
+			g_value_transform(value, *out_value);
+		} else {
+			g_set_error(
+				err,
+				GSDL_SYNTAX_ERROR,
+				GSDL_SYNTAX_ERROR_BAD_TYPE,
+				"Tag \"%s\" requires %s of type %s, got %s",
+				tag_name,
+				value_id,
+				g_type_name(G_VALUE_TYPE(value)),
+				g_type_name(type)
+			);
+
+			return false;
+		}
+	}
+
+	return true;
+}
+
+extern bool gsdl_parser_collect_values(const gchar *name, GValue* const *values, GError **err, const GType first_type, GValue **first_value, ...) {
+	va_list args;
+
+	va_start(args, first_value);
+
+	GType type = first_type;
+	GValue **out_value = first_value;
+	int i = 1;
+
+	while (type) {
+		GValue *value = NULL + 1;	
+
+		if (*values) {
+			value = *values++;
+		} else {
+			value = NULL;
+		}
+
+		if (!_copy_value(name, first_type, value, out_value, err, "value %d", i)) return false;
+
+		type = va_arg(args, GType);
+		if (type) out_value = va_arg(args, GValue**);
+	}
+
+	va_end(args);
+	return true;
+}
+
+extern bool gsdl_parser_collect_attributes(const gchar *name, gchar* const *attr_names, GValue* const *attr_values, GError **err, const GType first_type, const gchar *first_name, GValue **first_value, ...) {
+	va_list args;
+
+	va_start(args, first_value);
+
+	GType type = first_type;
+	gchar *attr_name = (gchar*) first_name;
+	GValue **out_value = first_value;
+
+	while (type) {
+		int i = 0;
+		while (attr_names[i] && strcmp(name, attr_names[i]) != 0) i++;
+
+		if (!_copy_value(name, first_type, attr_values[i], out_value, err, "attribute \"%s\"", attr_name)) return false;
+
+		type = va_arg(args, GType);
+		if (type) {
+			attr_name = va_arg(args, gchar*);
+			out_value = va_arg(args, GValue**);
+		}
+	}
+
+	va_end(args);
+	return true;
+}

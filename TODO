@@ -1,6 +1,3 @@
-  * Utility functions for extracting values, like g_markup_collect_attributes
   * Namespace support
   * Examples
   * GObjectify parser and add introspection annotations
-  * pkg-config file
-
