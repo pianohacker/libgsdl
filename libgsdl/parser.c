@@ -782,7 +782,7 @@ bool gsdl_parser_context_parse_string(GSDLParserContext *self, const char *str) 
 }
 
 static bool _copy_value(const gchar *tag_name, GType type, GValue *value, GValue **out_value, GError **err, const gchar *err_format, ...) {
-	bool check_type = !!(GSDL_GTYPE_ANY & type), optional = !!(GSDL_GTYPE_OPTIONAL & type);
+	bool check_type = !(GSDL_GTYPE_ANY & type), optional = !!(GSDL_GTYPE_OPTIONAL & type);
 	type &= ~(GSDL_GTYPE_OPTIONAL | GSDL_GTYPE_ANY);
 
 	va_list args;
@@ -816,7 +816,7 @@ static bool _copy_value(const gchar *tag_name, GType type, GValue *value, GValue
 		} else {
 			g_value_init(*out_value, G_VALUE_TYPE(value));
 		}
-		g_value_copy(*out_value, value);
+		g_value_copy(value, *out_value);
 	} else {
 		if (g_value_type_transformable(G_VALUE_TYPE(value), type)) {
 			*out_value = g_new0(GValue, 1);
@@ -880,7 +880,7 @@ extern bool gsdl_parser_collect_attributes(const gchar *name, gchar* const *attr
 
 	while (type) {
 		int i = 0;
-		while (attr_names[i] && strcmp(name, attr_names[i]) != 0) i++;
+		while (attr_names[i] && strcmp(attr_name, attr_names[i]) != 0) i++;
 
 		if (!_copy_value(name, first_type, attr_values[i], out_value, err, "attribute \"%s\"", attr_name)) return false;
 
