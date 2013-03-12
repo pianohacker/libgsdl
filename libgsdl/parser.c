@@ -830,8 +830,8 @@ static bool _copy_value(const gchar *tag_name, GType type, GValue *value, GValue
 				"Tag \"%s\" requires %s of type %s, got %s",
 				tag_name,
 				value_id,
-				g_type_name(G_VALUE_TYPE(value)),
-				g_type_name(type)
+				g_type_name(type),
+				g_type_name(G_VALUE_TYPE(value))
 			);
 
 			return false;
