@@ -97,7 +97,7 @@ void test_parser_identifier_nested() {
 	g_assert(success);
 
 	g_string_truncate(result, 0);
-	success = gsdl_parser_context_parse_string(context, "first { second { third } }");
+	success = gsdl_parser_context_parse_string(context, "first { second {\nthird } }");
 	g_assert_cmpstr(result->str, ==, "(first\n(second\n(third\nthird)\nsecond)\nfirst)\n");
 	g_assert(success);
 }
