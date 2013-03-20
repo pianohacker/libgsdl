@@ -70,9 +70,9 @@ typedef struct {
 
 } GSDLParser;
 
-#define GSDL_GTYPE_ANY 1 << (sizeof(GType) * 8 - 1)
+#define GSDL_GTYPE_ANY 1L << (sizeof(GType) * 8 - 1)
 #define GSDL_GTYPE_END 0
-#define GSDL_GTYPE_OPTIONAL 1 << (sizeof(GType) * 8 - 2)
+#define GSDL_GTYPE_OPTIONAL 1L << (sizeof(GType) * 8 - 2)
 
 extern GSDLParserContext* gsdl_parser_context_new(GSDLParser *parser, gpointer user_data);
 
