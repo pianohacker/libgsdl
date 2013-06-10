@@ -61,7 +61,7 @@ struct _GSDLParserContext {
  * Returns: a new #GSDLParserContext.
  */
 GSDLParserContext* gsdl_parser_context_new(GSDLParser *parser, gpointer user_data) {
-	GSDLParserContext *self = g_new0(GSDLParserContext, 1);
+	GSDLParserContext *self = g_slice_new0(GSDLParserContext);
 
 	self->parser = parser;
 	self->user_data = user_data;
@@ -631,7 +631,7 @@ static bool _parse_tag(GSDLParserContext *self) {
 	bool peek_success = true;
 
 	while ((_peek(self, &token) || (peek_success = false)) && _token_is_value(token)) {
-		GValue *value = g_new0(GValue, 1);
+		GValue *value = g_slice_new0(GValue);
 		REQUIRE(_parse_value(self, value));
 		g_array_append_val(values, value);
 	}
@@ -647,7 +647,7 @@ static bool _parse_tag(GSDLParserContext *self) {
 		EXPECT('=');
 		gsdl_token_free(token);
 
-		GValue *value = g_new0(GValue, 1);
+		GValue *value = g_slice_new0(GValue);
 		REQUIRE(_parse_value(self, value));
 		g_array_append_val(attr_values, value);
 	}
@@ -810,7 +810,7 @@ static bool _copy_value(const gchar *tag_name, GType type, GValue *value, GValue
 	}
 
 	if (G_VALUE_TYPE(value) == type || !check_type) {
-		*out_value = g_new0(GValue, 1);
+		*out_value = g_slice_new0(GValue);
 		if (check_type) {
 			g_value_init(*out_value, type);
 		} else {
@@ -819,7 +819,7 @@ static bool _copy_value(const gchar *tag_name, GType type, GValue *value, GValue
 		g_value_copy(value, *out_value);
 	} else {
 		if (g_value_type_transformable(G_VALUE_TYPE(value), type)) {
-			*out_value = g_new0(GValue, 1);
+			*out_value = g_slice_new0(GValue);
 			g_value_init(*out_value, type);
 			g_value_transform(value, *out_value);
 		} else {

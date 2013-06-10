@@ -107,7 +107,7 @@ static char *TOKEN_NAMES[15] = {
  * Returns: A new %GSDLTokenizer, or NULL on failure.
  */
 GSDLTokenizer* gsdl_tokenizer_new(const char *filename, GError **err) {
-	GSDLTokenizer* self = g_new(GSDLTokenizer, 1);
+	GSDLTokenizer* self = g_slice_new0(GSDLTokenizer);
 	self->filename = g_strdup(filename);
 	self->channel = g_io_channel_new_file(filename, "r", err);
 
@@ -131,7 +131,7 @@ GSDLTokenizer* gsdl_tokenizer_new(const char *filename, GError **err) {
  * Returns: A new %GSDLTokenizer, or NULL on failure.
  */
 GSDLTokenizer* gsdl_tokenizer_new_from_string(const char *str, GError **err) {
-	GSDLTokenizer* self = g_new(GSDLTokenizer, 1);
+	GSDLTokenizer* self = g_slice_new0(GSDLTokenizer);
 	self->filename = "<string>";
 	self->stringbuf = g_utf8_to_ucs4(str, -1, NULL, NULL, err);
 
@@ -171,7 +171,7 @@ void gsdl_tokenizer_free(GSDLTokenizer *self) {
 
 	if (self->stringbuf) g_free(self->stringbuf);
 
-	g_free(self);
+	g_slice_free(GSDLTokenizer, self);
 }
 
 /**
