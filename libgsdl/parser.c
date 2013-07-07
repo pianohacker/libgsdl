@@ -859,7 +859,7 @@ extern bool gsdl_parser_collect_values(const gchar *name, GValue* const *values,
 			value = NULL;
 		}
 
-		if (!_copy_value(name, first_type, value, out_value, err, "value %d", i)) return false;
+		if (!_copy_value(name, type, value, out_value, err, "value %d", i)) return false;
 
 		type = va_arg(args, GType);
 		if (type) out_value = va_arg(args, GValue**);
@@ -882,7 +882,7 @@ extern bool gsdl_parser_collect_attributes(const gchar *name, gchar* const *attr
 		int i = 0;
 		while (attr_names[i] && strcmp(attr_name, attr_names[i]) != 0) i++;
 
-		if (!_copy_value(name, first_type, attr_values[i], out_value, err, "attribute \"%s\"", attr_name)) return false;
+		if (!_copy_value(name, type, attr_values[i], out_value, err, "attribute \"%s\"", attr_name)) return false;
 
 		type = va_arg(args, GType);
 		if (type) {
