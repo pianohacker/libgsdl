@@ -432,7 +432,7 @@ static bool _tokenize_identifier(GSDLTokenizer *self, GSDLToken *result, gunicha
 
 	int i = g_unichar_to_utf8(c, output);
 
-	while (_peek(self, &c, err) && (g_unichar_isalpha(c) || g_unichar_isdigit(c) || (type = g_unichar_type(c)) == G_UNICODE_CURRENCY_SYMBOL || type == G_UNICODE_CONNECT_PUNCTUATION || type == G_UNICODE_LETTER_NUMBER || type == G_UNICODE_SPACING_MARK || type == G_UNICODE_NON_SPACING_MARK)) {
+	while (_peek(self, &c, err) && (c == '-' || c == '.' || g_unichar_isalpha(c) || g_unichar_isdigit(c) || (type = g_unichar_type(c)) == G_UNICODE_CURRENCY_SYMBOL || type == G_UNICODE_CONNECT_PUNCTUATION || type == G_UNICODE_LETTER_NUMBER || type == G_UNICODE_SPACING_MARK || type == G_UNICODE_NON_SPACING_MARK)) {
 		GROW_IF_NEEDED(output = result->val, i + 5, length);
 
 		_consume(self);

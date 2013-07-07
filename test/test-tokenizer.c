@@ -93,6 +93,25 @@ void test_tokenizer_string_strings() {
 	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
 }
 
+void test_tokenizer_string_identifiers() {
+	GError *error = NULL;
+	GSDLTokenizer *tokenizer = gsdl_tokenizer_new_from_string("myName myName123 my-name my_name _my-name my_name_ com.ikayzo.foo", &error);
+
+	g_assert_no_error(error);
+	g_assert(tokenizer != NULL);
+
+	GSDLToken *token;
+	ASSERT_TOKEN_VAL(T_IDENTIFIER, "myName");
+	ASSERT_TOKEN_VAL(T_IDENTIFIER, "myName123");
+	ASSERT_TOKEN_VAL(T_IDENTIFIER, "my-name");
+	ASSERT_TOKEN_VAL(T_IDENTIFIER, "my_name");
+	ASSERT_TOKEN_VAL(T_IDENTIFIER, "_my-name");
+	ASSERT_TOKEN_VAL(T_IDENTIFIER, "my_name_");
+	ASSERT_TOKEN_VAL(T_IDENTIFIER, "com.ikayzo.foo");
+	ASSERT_TOKEN(T_EOF);
+	g_assert(!gsdl_tokenizer_next(tokenizer, &token, &error));
+}
+
 void test_tokenizer_string_keywords() {
 	GError *error = NULL;
 	GSDLTokenizer *tokenizer = gsdl_tokenizer_new_from_string("on true ident off nul null false", &error);
@@ -195,6 +214,7 @@ int main(int argc, char **argv) {
 
 	TEST(string_binary);
 	TEST(string_comments);
+	TEST(string_identifiers);
 	TEST(string_keywords);
 	TEST(string_numbers);
 	TEST(string_strings);
